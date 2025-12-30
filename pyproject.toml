@@ -1,0 +1,38 @@
+[project]
+name = "Verteiler Beschriften"
+version = "2.3.4"
+description = "Anlagen Eingabe und Verteiler-Beschriftung"
+requires-python = ">=3.8"
+license-files = [
+    "LICENSE",
+]
+dependencies = [
+    "flet>=0.24.0",
+]
+
+[project.optional-dependencies]
+desktop = [
+    "odfpy",  # ODS/ODT Export für Desktop
+]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flet]
+name = "Verteiler_beschriften"
+description = "Anlagen Eingabe und Verteiler-Beschriftung"
+version = "2.3.4"
+
+[tool.flet.app]
+path = "src"
+icon = "assets/logo.png"
+assets = ["assets"]
+
+[tool.flet.android]
+# Keine zusätzlichen Packages für Android - nutzt manuelle ODS-Erstellung
+
+permissions = [
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+]

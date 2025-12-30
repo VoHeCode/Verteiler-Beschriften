@@ -4,6 +4,7 @@
 
 Enthält die komplette Logik für den Export von Anlagen in ODS-Format
 (OpenDocument Spreadsheet) und Kunden in ODT-Format (OpenDocument Text).
+Nutzt odfpy für Desktop und manuelle ZIP+XML für Android.
 """
 
 import os
@@ -11,25 +12,119 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from odf.opendocument import OpenDocumentSpreadsheet, OpenDocumentText
-from odf.table import Table, TableRow, TableCell, TableColumn, CoveredTableCell
-from odf.text import P, H
-from odf.style import (
-    Style,
-    TableColumnProperties,
-    TableRowProperties,
-    TableCellProperties,
-    TextProperties,
-    ParagraphProperties,
-    PageLayout,
-    PageLayoutProperties,
-    MasterPage,
-    TabStop,
-    TabStops
-)
-from odf import teletype
+# Desktop: odfpy (optional)
+try:
+    from odf.opendocument import OpenDocumentSpreadsheet, OpenDocumentText
+    from odf.table import Table, TableRow, TableCell, TableColumn, CoveredTableCell
+    from odf.text import P, H
+    from odf.style import (
+        Style,
+        TableColumnProperties,
+        TableRowProperties,
+        TableCellProperties,
+        TextProperties,
+        ParagraphProperties,
+        PageLayout,
+        PageLayoutProperties,
+        MasterPage,
+        TabStop,
+        TabStops
+    )
+    from odf import teletype
+    HAS_ODFPY = True
+except ImportError:
+    HAS_ODFPY = False
+
+# Android: Manuelle ODS-Erstellung
+from ods_manual import create_ods_manual
 
 from constants import SPALTEN_PRO_EINHEIT
+
+
+def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
+    """Konvertiert Anlagen-Daten in Format für manuelle ODS-Erstellung.
+    
+    Args:
+        anlage: Anlage Dictionary
+        gueltige_eintraege: Liste gültiger Beschriftungen
+        felder: Anzahl Felder
+        reihen: Anzahl Reihen
+    
+    Returns:
+        dict: Daten im Format für create_ods_manual
+    """
+    # Spalten-Map erstellen
+    spalten_map = {}
+    for beschr in gueltige_eintraege:
+        spalten_map[beschr['spalten_liste'][0]] = {
+            'beschreibung': beschr['beschreibung'],
+            'anzahl': len(beschr['spalten_liste'])
+        }
+    
+    rows = []
+    globale_spalten_start = 1
+    
+    # Felder und Reihen durchlaufen
+    for feld in range(1, felder + 1):
+        for reihe in range(1, reihen + 1):
+            # Beschriftungszeile (Spaltennummern)
+            beschr_cells = []
+            temp_spalte_nr = globale_spalten_start
+            
+            for i in range(SPALTEN_PRO_EINHEIT):
+                beschr_cells.append({
+                    'text': str(temp_spalte_nr + i),
+                    'style': 'ce1',
+                    'colspan': 1
+                })
+            
+            rows.append({
+                'is_header': True,
+                'cells': beschr_cells
+            })
+            
+            # Inhaltszeile (Beschriftungen)
+            inhalt_cells = []
+            lokale_spalten_zaehler = 0
+            
+            while lokale_spalten_zaehler < SPALTEN_PRO_EINHEIT:
+                globale_spalten_nr = globale_spalten_start + lokale_spalten_zaehler
+                
+                if globale_spalten_nr in spalten_map:
+                    eintrag = spalten_map[globale_spalten_nr]
+                    anzahl = eintrag['anzahl']
+                    anzahl_in_reihe = min(
+                        anzahl,
+                        SPALTEN_PRO_EINHEIT - lokale_spalten_zaehler
+                    )
+                    
+                    inhalt_cells.append({
+                        'text': eintrag['beschreibung'],
+                        'style': 'ce2',
+                        'colspan': anzahl_in_reihe
+                    })
+                    
+                    lokale_spalten_zaehler += anzahl_in_reihe
+                else:
+                    inhalt_cells.append({
+                        'text': '',
+                        'style': 'ce3',
+                        'colspan': 1
+                    })
+                    lokale_spalten_zaehler += 1
+            
+            rows.append({
+                'is_header': False,
+                'cells': inhalt_cells
+            })
+            
+            globale_spalten_start += SPALTEN_PRO_EINHEIT
+    
+    return {
+        'name': anlage['beschreibung'],
+        'num_cols': SPALTEN_PRO_EINHEIT,
+        'rows': rows
+    }
 
 
 def parse_zeile(zeile):
@@ -242,8 +337,8 @@ def erstelle_ods_styles(doc, settings):
     return spalten_style, beschr_row_style, inhalt_row_style
 
 
-def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname):
-    """Exportiert eine Anlage als ODS-Datei.
+def exportiere_anlage_ods_odfpy(anlage, settings, export_base_path, kundenname):
+    """Exportiert eine Anlage als ODS-Datei mit odfpy (Desktop).
 
     Args:
         anlage (dict): Anlagen-Dictionary mit allen Daten
@@ -257,6 +352,9 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname):
     Raises:
         ValueError: Wenn Anlage ungültig ist oder keine Einträge vorhanden
     """
+    if not HAS_ODFPY:
+        raise RuntimeError('odfpy ist nicht installiert')
+        
     # Validierung
     if not anlage:
         raise ValueError('Keine Anlage zum Exportieren vorhanden.')
@@ -365,6 +463,82 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname):
     doc.save(str(export_pfad))
 
     return export_pfad
+
+
+def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname):
+    """Exportiert eine Anlage als ODS-Datei manuell (Android).
+
+    Args:
+        anlage (dict): Anlagen-Dictionary mit allen Daten
+        settings (dict): Settings-Dictionary
+        export_base_path (Path): Basis-Pfad für Export-Verzeichnis
+        kundenname (str): Name des Kunden für Unterordner
+
+    Returns:
+        Path: Pfad zur exportierten Datei
+
+    Raises:
+        ValueError: Wenn Anlage ungültig ist oder keine Einträge vorhanden
+    """
+    # Validierung
+    if not anlage:
+        raise ValueError('Keine Anlage zum Exportieren vorhanden.')
+
+    felder = anlage.get('felder', 3)
+    reihen = anlage.get('reihen', 7)
+    text_inhalt = anlage.get('text_inhalt', '')
+
+    is_valid, gueltige_eintraege, fehler_anzahl, _, _ = validiere_eintraege(
+        text_inhalt, felder, reihen
+    )
+
+    if not is_valid:
+        raise ValueError(
+            'Die Anlage enthält fehlerhafte Beschriftungen. '
+            'Bitte beheben Sie die Fehler vor dem Export.'
+        )
+
+    if not gueltige_eintraege:
+        raise ValueError('Keine gültigen Beschriftungen zum Exportieren gefunden!')
+
+    # Sortiere nach erster Spalte
+    gueltige_eintraege.sort(key=lambda x: x['spalten_liste'][0])
+
+    # Konvertiere Daten
+    data = convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen)
+
+    # Speichern
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dateiname = f'{anlage["beschreibung"].replace(" ", "_")}_{timestamp}.ods'
+    export_pfad = Path(export_base_path) / kundenname / dateiname
+    os.makedirs(export_pfad.parent, exist_ok=True)
+
+    # Erstelle ODS manuell
+    create_ods_manual(data, settings, str(export_pfad))
+
+    return export_pfad
+
+
+def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, use_manual=False):
+    """Exportiert eine Anlage als ODS-Datei (Wrapper-Funktion).
+
+    Args:
+        anlage (dict): Anlagen-Dictionary mit allen Daten
+        settings (dict): Settings-Dictionary
+        export_base_path (Path): Basis-Pfad für Export-Verzeichnis
+        kundenname (str): Name des Kunden für Unterordner
+        use_manual (bool): True für manuelle Erstellung (Android), False für odfpy (Desktop)
+
+    Returns:
+        Path: Pfad zur exportierten Datei
+
+    Raises:
+        ValueError: Wenn Anlage ungültig ist oder keine Einträge vorhanden
+    """
+    if use_manual or not HAS_ODFPY:
+        return exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname)
+    else:
+        return exportiere_anlage_ods_odfpy(anlage, settings, export_base_path, kundenname)
 
 
 def exportiere_kunde_odt(kunde, kundenname, export_base_path):

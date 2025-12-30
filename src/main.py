@@ -649,11 +649,15 @@ class AnlagenApp:
             return self.dialog("Fehler", "Keine Anlage ausgewählt.")
 
         try:
+            # Android nutzt manuelle ODS-Erstellung
+            use_manual = (self.page.platform == "android")
+            
             pfad = exportiere_anlage_ods(
                 self.aktuelle_anlage, 
                 self.settings, 
                 self.get_export_path(),
-                self.aktiver_kunde_key
+                self.aktiver_kunde_key,
+                use_manual=use_manual
             )
             self.letzte_export_datei = pfad
             self.ui["teile_button"].disabled = False
