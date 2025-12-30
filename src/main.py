@@ -13,9 +13,8 @@ from pathlib import Path
 from constants import APP_VERSION, APP_NAME, SPALTEN_PRO_EINHEIT
 from data_manager import DataManager
 from ui_builder import UIBuilder
-from ods_exporter import validiere_eintraege, exportiere_anlage_ods, share_file_android
-from android_handler import ist_android_plattform, exportiere_android, importiere_android, exportiere_desktop, \
-    importiere_desktop
+from ods_exporter import validiere_eintraege, exportiere_anlage_ods
+from android_handler import exportiere_zu_downloads as export_downloads, importiere_von_downloads as import_downloads
 
 
 class AnlagenApp:
@@ -23,27 +22,27 @@ class AnlagenApp:
 
     def __init__(self, page: ft.Page):
         """Initialisiert die App.
-
+        
         Args:
             page: Flet Page-Objekt
         """
         self.page = page
         self.page.title = f"{APP_NAME} V{APP_VERSION}"
         self.page.scroll = ft.ScrollMode.AUTO
-
+        
         # Daten-Pfad
         self.data_path = Path.home() / ".anlagen_app"
         self.data_path.mkdir(exist_ok=True)
-
+        
         # Daten-Manager
         self.data_manager = DataManager(self.data_path)
-
+        
         # Settings
         self.settings = self.data_manager.lade_settings()
-
+        
         # UI-Builder
         self.ui_builder = UIBuilder(self, page)
-
+        
         # Daten
         self.kunden_daten = {}
         self.anlagen_daten = []
@@ -52,12 +51,12 @@ class AnlagenApp:
         self.alle_kunden = {}
         self.aktiver_kunde_key = None
         self.next_kunden_id = 1
-
+        
         # UI-Komponenten
         self.kunden_auswahl = None
         self.kunde_input = None
         self.anlagen_tabelle = None
-
+        
         # Anlage-Detail UI
         self.beschr_input = None
         self.name_input = None
@@ -78,7 +77,7 @@ class AnlagenApp:
         self.text_editor = None
         self.teile_button = None
         self.letzte_export_datei = None
-
+        
         # Settings UI
         self.settings_felder_input = None
         self.settings_reihen_input = None
@@ -93,10 +92,10 @@ class AnlagenApp:
         self.settings_rand_unten_input = None
         self.settings_rand_links_input = None
         self.settings_rand_rechts_input = None
-
+        
         # Initialisiere
         self.init_app()
-
+    
     def init_app(self):
         """Initialisiert die App-Daten und UI."""
         # Initialisiere Kundendaten-Widgets
@@ -114,77 +113,77 @@ class AnlagenApp:
             'telefonnummer': ft.TextField(hint_text="Telefonnummer", on_change=self.speichere_projekt_daten),
             'email': ft.TextField(hint_text="E-Mail", on_change=self.speichere_projekt_daten),
         }
-
+        
         # Lade Daten
         self.lade_daten()
-
+        
         # Erstelle UI
         hauptansicht = self.ui_builder.erstelle_hauptansicht()
         self.page.add(hauptansicht)
-
+    
     # ==================== Daten laden/speichern ====================
-
+    
     def lade_daten(self):
         """Lädt alle Kundendaten."""
         alle_kunden, next_kunden_id, next_anlage_id = self.data_manager.lade_daten()
-
+        
         self.alle_kunden = alle_kunden
         self.next_kunden_id = next_kunden_id
         self.next_anlage_id = next_anlage_id
-
+        
         if self.alle_kunden:
             self.aktiver_kunde_key = list(self.alle_kunden.keys())[0]
             self.aktualisiere_aktive_daten()
-
+    
     def speichere_daten(self, e=None):
         """Speichert alle Kundendaten."""
         self.speichere_projekt_daten()
-
+        
         speicherbare_kunden = {}
         aktive_felder = list(self.kunden_daten.keys())
-
+        
         for key, kunde_data in self.alle_kunden.items():
             speicherbare_kunden[key] = self.data_manager.konvertiere_kunde_zu_speicherbar(
                 kunde_data, aktive_felder
             )
-
+        
         erfolg, fehler = self.data_manager.speichere_daten(
             speicherbare_kunden, self.next_kunden_id, self.next_anlage_id
         )
-
+        
         if not erfolg:
             self.show_error("Speicher-Fehler", f"Fehler: {fehler}")
-
+    
     def speichere_projekt_daten(self, e=None):
         """Speichert Projektdaten des aktiven Kunden."""
         if not self.aktiver_kunde_key or self.aktiver_kunde_key not in self.alle_kunden:
             return
-
+        
         kunde = self.alle_kunden[self.aktiver_kunde_key]
         for key, widget in self.kunden_daten.items():
             kunde[key] = widget.value
-
+    
     def aktualisiere_aktive_daten(self):
         """Aktualisiert UI mit Daten des aktiven Kunden."""
         if not self.aktiver_kunde_key or self.aktiver_kunde_key not in self.alle_kunden:
             return
-
+        
         kunde = self.alle_kunden[self.aktiver_kunde_key]
-
+        
         for key, widget in self.kunden_daten.items():
             widget.value = kunde.get(key, '')
-
+        
         self.anlagen_daten = kunde.get('anlagen', [])
         self.aktualisiere_anlagen_tabelle()
-
+        
         if self.page:
             self.page.update()
-
+    
     def aktualisiere_anlagen_tabelle(self):
         """Aktualisiert die Anlagen-Tabelle."""
         if not self.anlagen_tabelle:
             return
-
+        
         self.anlagen_tabelle.rows.clear()
         for anlage in self.anlagen_daten:
             self.anlagen_tabelle.rows.append(
@@ -198,39 +197,39 @@ class AnlagenApp:
                     data=anlage  # Speichere Anlage in row.data
                 )
             )
-
+        
         if self.page:
             self.page.update()
-
+    
     # ==================== Helper für Dialoge ====================
-
+    
     def show_error(self, title, message):
         """Zeigt Fehler-Dialog."""
         dlg = ft.AlertDialog(title=ft.Text(title), content=ft.Text(message))
         self.page.dialog = dlg
         dlg.open = True
         self.page.update()
-
+    
     def show_info(self, title, message):
         """Zeigt Info-Dialog."""
         dlg = ft.AlertDialog(title=ft.Text(title), content=ft.Text(message))
         self.page.dialog = dlg
         dlg.open = True
         self.page.update()
-
+    
     # ==================== Kunden-Verwaltung ====================
-
+    
     def wechsel_kunden_auswahl(self, e):
         """Wechselt aktiven Kunden."""
         if e.control.value and e.control.value in self.alle_kunden:
             self.aktiver_kunde_key = e.control.value
             self.aktualisiere_aktive_daten()
-
+    
     def _navigiere_kunde_links(self, e):
         """Navigiert zum vorherigen Kunden."""
         if not self.alle_kunden:
             return
-
+        
         keys = list(self.alle_kunden.keys())
         if self.aktiver_kunde_key in keys:
             idx = keys.index(self.aktiver_kunde_key)
@@ -238,12 +237,12 @@ class AnlagenApp:
             self.aktiver_kunde_key = keys[new_idx]
             self.kunden_auswahl.value = self.aktiver_kunde_key
             self.aktualisiere_aktive_daten()
-
+    
     def _navigiere_kunde_rechts(self, e):
         """Navigiert zum nächsten Kunden."""
         if not self.alle_kunden:
             return
-
+        
         keys = list(self.alle_kunden.keys())
         if self.aktiver_kunde_key in keys:
             idx = keys.index(self.aktiver_kunde_key)
@@ -251,18 +250,18 @@ class AnlagenApp:
             self.aktiver_kunde_key = keys[new_idx]
             self.kunden_auswahl.value = self.aktiver_kunde_key
             self.aktualisiere_aktive_daten()
-
+    
     def _kunde_neu_hinzufuegen(self, e):
         """Fügt neuen Kunden hinzu."""
         name = self.kunde_input.value.strip()
         if not name:
             self.show_error('Fehler', 'Bitte Kundennamen eingeben.')
             return
-
+        
         if name in self.alle_kunden:
             self.show_error('Fehler', f'Kunde "{name}" existiert bereits.')
             return
-
+        
         self.alle_kunden[name] = {
             'id': self.next_kunden_id,
             'projekt': '',
@@ -273,75 +272,75 @@ class AnlagenApp:
         }
         self.next_kunden_id += 1
         self.aktiver_kunde_key = name
-
+        
         self.kunden_auswahl.options = [ft.dropdown.Option(k) for k in self.alle_kunden.keys()]
         self.kunden_auswahl.value = name
         self.aktualisiere_aktive_daten()
         self.speichere_daten()
         self.kunde_input.value = ''
         self.page.update()
-
+        
         self.show_info('Erfolg', f'Kunde "{name}" hinzugefügt.')
-
+    
     def _kunde_umbenennen(self, e):
         """Benennt aktiven Kunden um."""
         if not self.aktiver_kunde_key:
             self.show_error('Fehler', 'Kein Kunde ausgewählt.')
             return
-
+        
         neuer_name = self.kunde_input.value.strip()
         if not neuer_name:
             self.show_error('Fehler', 'Bitte neuen Namen eingeben.')
             return
-
+        
         if neuer_name in self.alle_kunden:
             self.show_error('Fehler', f'Kunde "{neuer_name}" existiert bereits.')
             return
-
+        
         alter_name = self.aktiver_kunde_key
         self.alle_kunden[neuer_name] = self.alle_kunden.pop(alter_name)
         self.aktiver_kunde_key = neuer_name
-
+        
         self.kunden_auswahl.options = [ft.dropdown.Option(k) for k in self.alle_kunden.keys()]
         self.kunden_auswahl.value = neuer_name
         self.speichere_daten()
         self.kunde_input.value = ''
         self.page.update()
-
+        
         self.show_info('Erfolg', f'Kunde umbenannt: "{alter_name}" → "{neuer_name}"')
-
+    
     def kunde_loeschen(self, e):
         """Löscht aktiven Kunden."""
         if not self.aktiver_kunde_key:
             self.show_error('Fehler', 'Kein Kunde ausgewählt.')
             return
-
+        
         # TODO: Bestätigungs-Dialog implementieren
         del self.alle_kunden[self.aktiver_kunde_key]
-
+        
         if self.alle_kunden:
             self.aktiver_kunde_key = list(self.alle_kunden.keys())[0]
         else:
             self.aktiver_kunde_key = None
-
+        
         self.kunden_auswahl.options = [ft.dropdown.Option(k) for k in self.alle_kunden.keys()]
         if self.aktiver_kunde_key:
             self.kunden_auswahl.value = self.aktiver_kunde_key
             self.aktualisiere_aktive_daten()
         else:
             self.anlagen_tabelle.rows.clear()
-
+        
         self.speichere_daten()
         self.page.update()
-
+    
     # ==================== Anlagen-Verwaltung ====================
-
+    
     def anlage_hinzufuegen(self, e):
         """Fügt neue Anlage hinzu."""
         if not self.aktiver_kunde_key:
             self.show_error('Fehler', 'Bitte zuerst Kunden auswählen.')
             return
-
+        
         neue_anlage = {
             'id': self.next_anlage_id,
             'beschreibung': f'Anlage {self.next_anlage_id}',
@@ -353,18 +352,18 @@ class AnlagenApp:
             'text_inhalt': '', 'teile_text': '', 'teile_parsed': []
         }
         self.next_anlage_id += 1
-
+        
         self.anlagen_daten.append(neue_anlage)
         self.aktualisiere_anlagen_tabelle()
         self.speichere_daten()
-
+        
         self.show_info('Erfolg', f'Anlage "{neue_anlage["beschreibung"]}" hinzugefügt.')
-
+    
     def anlage_loeschen(self, e):
         """Löscht ausgewählte Anlage."""
         # TODO: Selektion implementieren
         self.show_error('Info', 'Bitte Anlage zum Bearbeiten auswählen.')
-
+    
     def bearbeite_ausgewaehlte_anlage(self, e):
         """Öffnet Detail-Ansicht für ausgewählte Anlage."""
         # TODO: Selektion implementieren
@@ -373,13 +372,13 @@ class AnlagenApp:
             self.navigiere_zu_detail_view()
         else:
             self.show_error('Fehler', 'Keine Anlage vorhanden.')
-
+    
     # ==================== Navigation ====================
-
+    
     def navigiere_zu_detail_view(self):
         """Navigiert zur Anlage-Detailansicht."""
         detail_view = self.ui_builder.erstelle_anlage_detail_view()
-
+        
         if self.aktuelle_anlage:
             self.beschr_input.value = self.aktuelle_anlage.get('beschreibung', '')
             self.name_input.value = self.aktuelle_anlage.get('name', '')
@@ -396,20 +395,20 @@ class AnlagenApp:
             self.felder_input.value = str(self.aktuelle_anlage.get('felder', 3))
             self.reihen_input.value = str(self.aktuelle_anlage.get('reihen', 7))
             self.text_editor.value = self.aktuelle_anlage.get('text_inhalt', '')
-
+            
             self.info_aktualisieren()
-
+        
         self.page.controls.clear()
         self.page.add(detail_view)
         self.page.update()
-
+    
     def navigiere_zu_settings(self, e):
         """Navigiert zu Settings."""
         settings_view = self.ui_builder.erstelle_settings_dialog()
         self.page.controls.clear()
         self.page.add(settings_view)
         self.page.update()
-
+    
     def zurueck_zur_hauptansicht(self, e):
         """Navigiert zurück zur Hauptansicht."""
         self.speichere_detail_daten()
@@ -419,14 +418,14 @@ class AnlagenApp:
         self.page.add(hauptansicht)
         self.aktualisiere_anlagen_tabelle()
         self.page.update()
-
+    
     # ==================== Detail-Daten ====================
-
+    
     def speichere_detail_daten(self):
         """Speichert Detail-Daten der aktuellen Anlage."""
         if not self.aktuelle_anlage:
             return
-
+        
         self.aktuelle_anlage['beschreibung'] = self.beschr_input.value
         self.aktuelle_anlage['name'] = self.name_input.value
         self.aktuelle_anlage['adresse'] = self.adresse_input.value
@@ -439,35 +438,35 @@ class AnlagenApp:
         self.aktuelle_anlage['zaehlerstand'] = self.zaehlerstand_input.value
         self.aktuelle_anlage['code'] = self.code_input.value
         self.aktuelle_anlage['bemerkung'] = self.bemerkung_input.value
-
+        
         try:
             self.aktuelle_anlage['felder'] = int(self.felder_input.value)
         except:
             self.aktuelle_anlage['felder'] = 3
-
+        
         try:
             self.aktuelle_anlage['reihen'] = int(self.reihen_input.value)
         except:
             self.aktuelle_anlage['reihen'] = 7
-
+        
         self.aktuelle_anlage['text_inhalt'] = self.text_editor.value
-
+    
     def auto_speichere_detail_daten(self, e):
         """Auto-Speichern bei Änderung."""
         self.speichere_detail_daten()
         self.speichere_daten()
-
+    
     # ==================== Code-Generierung ====================
-
+    
     def generiere_code_string(self):
         """Generiert Code-String aus Lokalisierungsfeldern."""
         teile = []
-
+        
         fun = self.funktion_input.value.strip()
         geb = self.gebaeude_input.value.strip()
         etage = self.geschoss_input.value.strip()
         raum = self.raum_input.value.strip()
-
+        
         if fun:
             teile.append(f'={fun}')
         if geb:
@@ -477,47 +476,47 @@ class AnlagenApp:
         else:
             if etage:
                 teile.append(f'++{etage}')
-
+        
         if raum:
             teile.append(f'+{raum}')
-
+        
         return ''.join(teile).upper() if teile else ''
-
+    
     def aktualisiere_anlagen_code(self, e=None):
         """Generiert Anlagen-Code dynamisch."""
         neuer_code = self.generiere_code_string()
-
+        
         if not self.code_input.value or self.code_input.value == self.aktuelle_anlage.get('code_auto_last', ''):
             self.code_input.value = neuer_code
             self.aktuelle_anlage['code_auto_last'] = neuer_code
             self.page.update()
-
+        
         self.speichere_detail_daten()
-
+    
     def aktualisiere_anlagen_code_und_speichere(self, e):
         """Aktualisiert Code und speichert."""
         self.aktualisiere_anlagen_code(e)
         self.speichere_daten()
-
+    
     # ==================== Info-Aktualisierung ====================
-
+    
     def info_aktualisieren(self, e=None):
         """Aktualisiert Info-Anzeige."""
         if not self.aktuelle_anlage or not self.felder_input:
             return False, []
-
+        
         self.speichere_detail_daten()
-
+        
         felder = self.aktuelle_anlage['felder']
         reihen = self.aktuelle_anlage['reihen']
         text = self.aktuelle_anlage['text_inhalt']
-
+        
         is_valid, gueltige_eintraege, fehler_anzahl, belegte_spalten, max_spalten = validiere_eintraege(
             text, felder, reihen
         )
-
+        
         self.info_label.value = f'Gesamt-Spalten: {felder} × {reihen} × {SPALTEN_PRO_EINHEIT} = {max_spalten}'
-
+        
         if fehler_anzahl > 0:
             self.verfuegbar_label.value = f'❌ {fehler_anzahl} Fehler!'
             self.verfuegbar_label.color = ft.colors.RED_700
@@ -525,56 +524,56 @@ class AnlagenApp:
             verfuegbar = max_spalten - len(belegte_spalten)
             self.verfuegbar_label.value = f'✓ Verfügbar: {verfuegbar} von {max_spalten}'
             self.verfuegbar_label.color = ft.colors.GREEN_700 if verfuegbar == max_spalten else ft.colors.ORANGE_700
-
+        
         self.page.update()
         return is_valid, gueltige_eintraege
-
+    
     def info_aktualisieren_und_speichern(self, e=None):
         """Aktualisiert Info und speichert."""
         self.info_aktualisieren(e)
         self.speichere_detail_daten()
         self.speichere_daten()
-
+    
     # ==================== Export ====================
-
+    
     def exportiere_anlage(self, e):
         """Exportiert aktuelle Anlage als ODS."""
         if not self.aktuelle_anlage:
             self.show_error('Fehler', 'Keine Anlage ausgewählt.')
             return
-
+        
         try:
             export_pfad = exportiere_anlage_ods(
                 self.aktuelle_anlage, self.settings, self.data_path
             )
-
+            
             self.letzte_export_datei = export_pfad
             self.teile_button.disabled = False
             self.page.update()
-
+            
             # TODO: Share implementieren für Android
             self.show_info('Erfolg', f'ODS exportiert: {export_pfad.name}')
-
+            
         except ValueError as e:
             self.show_error('Validierungs-Fehler', str(e))
         except Exception as e:
             self.show_error('Export-Fehler', f'Fehler beim Export:\n{str(e)}')
-
+    
     def teile_letzte_ods(self, e):
         """Teilt letzte ODS."""
         if not self.letzte_export_datei or not self.letzte_export_datei.exists():
             self.show_error('Fehler', 'Keine Datei gefunden.')
             return
-
+        
         # TODO: Android Share implementieren
         self.show_info('Info', f'Datei: {self.letzte_export_datei}')
-
+    
     def exportiere_kunde_odt(self, e):
         """Placeholder für Kunden-Export."""
         self.show_info('Info', 'Kunden-ODT-Export noch nicht implementiert.')
-
+    
     # ==================== Settings ====================
-
+    
     def auto_speichere_settings(self, e):
         """Speichert Settings automatisch."""
         try:
@@ -591,32 +590,26 @@ class AnlagenApp:
             self.settings['rand_unten'] = float(self.settings_rand_unten_input.value)
             self.settings['rand_links'] = float(self.settings_rand_links_input.value)
             self.settings['rand_rechts'] = float(self.settings_rand_rechts_input.value)
-
+            
             self.data_manager.speichere_settings(self.settings)
         except:
             pass
-
+    
     # ==================== Export/Import ====================
-
+    
     def exportiere_zu_downloads(self, e):
         """Exportiert zu Downloads."""
-        if ist_android_plattform(self.page):
-            erfolg, dateien, fehler = exportiere_android(None, self.data_manager)
-        else:
-            erfolg, dateien, fehler = exportiere_desktop(self.data_manager)
-
+        erfolg, dateien, fehler = export_downloads(self.data_manager)
+        
         if erfolg:
             self.show_info('Export erfolgreich', '\n'.join(dateien))
         else:
             self.show_error('Export-Fehler', fehler)
-
+    
     def importiere_von_downloads(self, e):
         """Importiert von Downloads."""
-        if ist_android_plattform(self.page):
-            erfolg, dateien, fehler = importiere_android(None, self.data_manager)
-        else:
-            erfolg, dateien, fehler = importiere_desktop(self.data_manager)
-
+        erfolg, dateien, fehler = import_downloads(self.data_manager)
+        
         if erfolg:
             self.settings = self.data_manager.lade_settings()
             self.lade_daten()

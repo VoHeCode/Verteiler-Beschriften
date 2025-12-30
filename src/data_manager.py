@@ -7,7 +7,7 @@ Funktionen zum Laden, Speichern und Verwalten von Daten und Einstellungen.
 
 import json
 from pathlib import Path
-from src.constants import DEFAULT_SETTINGS, DATEINAME, SETTINGS_DATEINAME
+from constants import DEFAULT_SETTINGS, DATEINAME, SETTINGS_DATEINAME
 
 
 class DataManager:
@@ -86,7 +86,7 @@ class DataManager:
         try:
             settings_pfad.parent.mkdir(parents=True, exist_ok=True)
             with open(settings_pfad, 'w', encoding='utf-8') as f:
-                json.dump(self.settings, f, indent=4)
+                json.dump(self.settings, f, indent=4)  # type: ignore[arg-type]
 
             print(f"Settings erfolgreich gespeichert: {self.settings}")
             return True, None
@@ -147,7 +147,7 @@ class DataManager:
             }
 
             with open(daten_pfad, 'w', encoding='utf-8') as f:
-                json.dump(alle_daten, f, indent=4, ensure_ascii=False)
+                json.dump(alle_daten, f, indent=4, ensure_ascii=False)  # type: ignore[arg-type]
 
             print(f"Daten erfolgreich gespeichert: {len(alle_kunden)} Kunden")
             return True, None
@@ -224,7 +224,7 @@ class DataManager:
         Returns:
             tuple: (erfolg: bool, exportierte_dateien: list, fehler: str oder None)
         """
-        from src.constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
+        from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
         import shutil
 
         ziel_verzeichnis = Path(ziel_verzeichnis)
@@ -259,7 +259,7 @@ class DataManager:
         Returns:
             tuple: (erfolg: bool, importierte_dateien: list, fehler: str oder None)
         """
-        from src.constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
+        from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
         import shutil
 
         quell_verzeichnis = Path(quell_verzeichnis)
