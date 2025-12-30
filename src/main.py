@@ -9,7 +9,7 @@ from pathlib import Path
 from constants import APP_VERSION, APP_NAME, SPALTEN_PRO_EINHEIT
 from data_manager import DataManager
 from ui_builder import UIBuilder
-from ods_exporter import validiere_eintraege, exportiere_anlage_ods
+from odf_exporter import validiere_eintraege, exportiere_anlage_ods, exportiere_kunde_odt
 from android_handler import exportiere_zu_downloads as export_downloads, importiere_von_downloads as import_downloads
 
 
@@ -42,6 +42,11 @@ class AnlagenApp:
         self.ausgewaehlte_anlage_id = None
         self.letzte_export_datei = None
 
+        # Dirty Flags für Speicheroptimierung
+        self.daten_dirty = False
+        self.settings_dirty = False
+        self.original_kunde_values = {}
+
         # UIBuilder
         self.ui_builder = UIBuilder(self, page)
 
@@ -71,7 +76,20 @@ class AnlagenApp:
             content=ft.Text(f"{action}: {filename}"),
             duration=5000,
         )
-        self.page.show_snack_bar(snackbar)
+        self.page.show_dialog(snackbar)
+
+    def get_export_path(self):
+        """Gibt OS-spezifischen Export-Pfad zurück."""
+        from pathlib import Path
+        
+        if self.page.platform == "android":
+            base = Path("/storage/emulated/0/Download/Verteiler_beschriften")
+        else:
+            # Desktop: Downloads oder Documents
+            base = Path.home() / "Downloads" / "Verteiler_beschriften"
+        
+        base.mkdir(parents=True, exist_ok=True)
+        return base
 
     def confirm_dialog(self, title, message, on_yes_callback):
         """Zeigt modalen Bestätigungsdialog mit Ja/Nein Buttons."""
@@ -112,6 +130,7 @@ class AnlagenApp:
         self.lade_daten()
         haupt = self.ui_builder.erstelle_hauptansicht()
         self.page.add(haupt)
+        self.page.update()
         self.aktualisiere_aktive_daten()
 
     # ---------------------------------------------------------
@@ -171,6 +190,35 @@ class AnlagenApp:
 
         self.map_get(mapping, kunde)
 
+    def on_kunde_feld_blur(self, e):
+        """Prüft bei Feldverlassen ob Wert geändert wurde."""
+        if not self.aktiver_kunde_key:
+            return
+        
+        # Finde UI-Key des Feldes
+        field_key = None
+        for key, field in self.ui.items():
+            if field == e.control:
+                field_key = key
+                break
+        
+        if not field_key or field_key not in self.original_kunde_values:
+            return
+        
+        # Vergleiche mit Original
+        current_value = e.control.value or ""
+        original_value = self.original_kunde_values[field_key]
+        
+        if current_value != original_value:
+            # Wert hat sich geändert
+            self.speichere_projekt_daten()
+            self.daten_dirty = True
+            self.original_kunde_values[field_key] = current_value
+            
+            # Speichere Datei
+            self.speichere_daten()
+            self.daten_dirty = False
+
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
             return
@@ -189,6 +237,11 @@ class AnlagenApp:
         }
 
         self.map_set(mapping, kunde)
+        
+        # Original-Werte für Vergleich speichern
+        self.original_kunde_values = {
+            key: kunde.get(data_key, "") for key, data_key in mapping.items()
+        }
 
         self.anlagen_daten = kunde.get("anlagen", [])
         self.aktualisiere_anlagen_tabelle()
@@ -596,11 +649,16 @@ class AnlagenApp:
             return self.dialog("Fehler", "Keine Anlage ausgewählt.")
 
         try:
-            pfad = exportiere_anlage_ods(self.aktuelle_anlage, self.settings, self.data_path)
+            pfad = exportiere_anlage_ods(
+                self.aktuelle_anlage, 
+                self.settings, 
+                self.get_export_path(),
+                self.aktiver_kunde_key
+            )
             self.letzte_export_datei = pfad
             self.ui["teile_button"].disabled = False
             self.page.update()
-            self.show_file_snackbar("Exportiert", pfad.name)
+            self.show_file_snackbar("Exportiert", str(pfad))
             self.dialog("Erfolg", f"ODS exportiert: {pfad.name}")
 
         except ValueError as e:
@@ -614,7 +672,24 @@ class AnlagenApp:
         self.dialog("Info", f"Datei: {self.letzte_export_datei}")
 
     def exportiere_kunde_odt(self, _e):
-        self.dialog("Info", "Kunden-ODT-Export noch nicht implementiert.")
+        """Exportiert alle Daten des aktiven Kunden als ODT."""
+        if not self.aktiver_kunde_key or self.aktiver_kunde_key not in self.alle_kunden:
+            return self.dialog('Fehler', 'Kein Kunde ausgewählt.')
+
+        self.speichere_projekt_daten()
+        self.speichere_daten()
+
+        kunde = self.alle_kunden[self.aktiver_kunde_key]
+
+        try:
+            pfad = exportiere_kunde_odt(kunde, self.aktiver_kunde_key, self.get_export_path())
+            self.show_file_snackbar("Exportiert", str(pfad))
+            self.dialog('Erfolg', f'ODT exportiert: {pfad.name}')
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            self.dialog('Export-Fehler', f'Fehler beim ODT-Export:\n{str(e)}\n\n{error_details[:300]}')
 
         # ---------------------------------------------------------
         # Settings

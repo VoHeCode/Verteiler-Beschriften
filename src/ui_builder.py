@@ -17,7 +17,7 @@ class UIBuilder:
     # ---------------------------------------------------------
 
     def tf(self, key, label=None, hint=None, value=None, expand=True,
-           on_change=None, **kw):
+           on_change=None, on_blur=None, **kw):
         """Erzeugt ein TextField und speichert es in self.app.ui[key]."""
         field = ft.TextField(
             label=label,
@@ -28,6 +28,8 @@ class UIBuilder:
         )
         if on_change:
             field.on_change = on_change
+        if on_blur:
+            field.on_blur = on_blur
 
         self.app.ui[key] = field
         return field
@@ -86,7 +88,7 @@ class UIBuilder:
             self.tf(
                 key,
                 label=label,
-                on_change=self.app.speichere_projekt_daten
+                on_blur=self.app.on_kunde_feld_blur
             )
 
         # Anlagen Container und RadioGroup
