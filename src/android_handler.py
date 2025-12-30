@@ -10,16 +10,23 @@ from pathlib import Path
 from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
 
 
-def ist_android_plattform():
+def ist_android_plattform(page=None):
     """Prüft ob die App auf Android läuft.
+
+    Args:
+        page: Flet Page-Objekt (optional für Kompatibilität)
 
     Returns:
         bool: True wenn Android-Plattform
     """
+    if page:
+        return page.platform == "android"
+    
+    # Fallback: Java-Import Test
     try:
-        from toga.platform import current_platform
-        return current_platform == "android"
-    except:
+        from java import jclass
+        return True
+    except (ImportError, AttributeError):
         return False
 
 
@@ -49,7 +56,7 @@ def hole_android_klassen():
         return None, None, None, None
 
 
-async def schreibe_datei_zu_downloads(content_resolver, collection_uri,
+def schreibe_datei_zu_downloads(content_resolver, collection_uri,
                                        datei_name, quell_pfad):
     """Schreibt eine Datei in den Android Downloads-Ordner.
 
@@ -100,7 +107,7 @@ async def schreibe_datei_zu_downloads(content_resolver, collection_uri,
         return False
 
 
-async def lese_datei_von_downloads(content_resolver, collection_uri,
+def lese_datei_von_downloads(content_resolver, collection_uri,
                                     datei_name, ziel_pfad):
     """Liest eine Datei aus dem Android Downloads-Ordner.
 
@@ -161,7 +168,7 @@ async def lese_datei_von_downloads(content_resolver, collection_uri,
         return False
 
 
-async def exportiere_android(app_impl, data_manager):
+def exportiere_android(app_impl, data_manager):
     """Exportiert Daten und Settings über Android MediaStore.
 
     Args:
@@ -187,7 +194,7 @@ async def exportiere_android(app_impl, data_manager):
         # Exportiere Daten-Datei
         daten_pfad = data_manager.get_data_file_path()
         if daten_pfad.exists():
-            erfolg = await schreibe_datei_zu_downloads(
+            erfolg = schreibe_datei_zu_downloads(
                 content_resolver,
                 collection_uri,
                 EXPORT_DATEN_DATEI,
@@ -199,7 +206,7 @@ async def exportiere_android(app_impl, data_manager):
         # Exportiere Settings-Datei
         settings_pfad = data_manager.get_settings_file_path()
         if settings_pfad.exists():
-            erfolg = await schreibe_datei_zu_downloads(
+            erfolg = schreibe_datei_zu_downloads(
                 content_resolver,
                 collection_uri,
                 EXPORT_SETTINGS_DATEI,
@@ -219,7 +226,7 @@ async def exportiere_android(app_impl, data_manager):
         return False, [], f"{str(e)}\n\n{error_details[:500]}"
 
 
-async def importiere_android(app_impl, data_manager):
+def importiere_android(app_impl, data_manager):
     """Importiert Daten und Settings über Android MediaStore.
 
     Args:
@@ -243,7 +250,7 @@ async def importiere_android(app_impl, data_manager):
         importierte_dateien = []
 
         # Importiere Daten-Datei
-        daten_gefunden = await lese_datei_von_downloads(
+        daten_gefunden = lese_datei_von_downloads(
             content_resolver,
             collection_uri,
             EXPORT_DATEN_DATEI,
@@ -253,7 +260,7 @@ async def importiere_android(app_impl, data_manager):
             importierte_dateien.append(f"✓ {EXPORT_DATEN_DATEI}")
 
         # Importiere Settings-Datei
-        settings_gefunden = await lese_datei_von_downloads(
+        settings_gefunden = lese_datei_von_downloads(
             content_resolver,
             collection_uri,
             EXPORT_SETTINGS_DATEI,
@@ -273,7 +280,7 @@ async def importiere_android(app_impl, data_manager):
         return False, [], f"{str(e)}\n\n{error_details[:300]}"
 
 
-async def exportiere_desktop(data_manager):
+def exportiere_desktop(data_manager):
     """Desktop-Fallback für Export.
 
     Args:
@@ -290,7 +297,7 @@ async def exportiere_desktop(data_manager):
         return False, [], f"Fehler beim Desktop-Export: {str(e)}"
 
 
-async def importiere_desktop(data_manager):
+def importiere_desktop(data_manager):
     """Desktop-Fallback für Import.
 
     Args:

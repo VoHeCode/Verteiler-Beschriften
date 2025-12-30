@@ -1,0 +1,10 @@
+# Anlagen Eingabe App - Requirements (Flet Version)
+
+# UI Framework
+flet>=0.24.0
+
+# ODS Export
+odfpy>=1.4.1
+
+# Android Support (optional, nur auf Android benötigt)
+# jnius wird automatisch von Flet auf Android installiert

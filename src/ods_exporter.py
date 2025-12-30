@@ -77,7 +77,7 @@ def parse_spalten(spalten_str):
             return list(range(start, ende + 1)) if start <= ende else None
         else:
             return [int(spalten_str)]
-    except:
+    except (ValueError, AttributeError):
         return None
 
 
@@ -363,7 +363,7 @@ def exportiere_anlage_ods(anlage, settings, export_base_path):
     return export_pfad
 
 
-async def share_file_android(file_path, app_impl, main_window, java=None):
+def share_file_android(file_path, app_impl, main_window):
     """Teilt eine Datei über Android Share-System.
 
     Args:
@@ -380,7 +380,7 @@ async def share_file_android(file_path, app_impl, main_window, java=None):
 
     # Prüfe ob Datei existiert
     if not file_path.exists():
-        await main_window.error_dialog(
+        main_window.error_dialog(
             "Fehler",
             f"Die Datei wurde nicht gefunden:\n{file_path}"
         )
@@ -393,7 +393,7 @@ async def share_file_android(file_path, app_impl, main_window, java=None):
         contentvalues = jclass("android.content.ContentValues")
         mediastore = jclass("android.provider.MediaStore")
     except Exception as e:
-        await main_window.error_dialog(
+        main_window.error_dialog(
             "Desktop-Modus",
             f"Share-Funktion ist nur auf Android verfügbar.\n\n"
             f"Datei liegt unter:\n{file_path}\n\n"
@@ -446,12 +446,9 @@ async def share_file_android(file_path, app_impl, main_window, java=None):
         # Starte Share-Dialog
         activity.startActivity(chooser)
 
-        import toga
-        await main_window.dialog(toga.InfoDialog(
-            "Erfolg",
-            "Share-Dialog wurde geöffnet!\n\n"
-            "Die Datei wurde auch in Downloads gespeichert."
-        ))
+        # TODO: Flet Dialog anpassen
+        # In Flet: page.dialog = ft.AlertDialog(...) und page.dialog.open = True
+        print("Share-Dialog wurde geöffnet! Die Datei wurde auch in Downloads gespeichert.")
 
         return True
 
@@ -460,7 +457,7 @@ async def share_file_android(file_path, app_impl, main_window, java=None):
         import traceback
         error_details = traceback.format_exc()
 
-        await main_window.error_dialog(
+        main_window.error_dialog(
             "Fehler beim Teilen",
             f"Konnte Datei nicht teilen.\n\n"
             f"Fehler: {str(e)}\n\n"
