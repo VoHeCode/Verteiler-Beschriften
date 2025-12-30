@@ -1,7 +1,7 @@
 # Anlagen Eingabe App - Requirements (Flet Version)
 
 # UI Framework
-flet>=0.24.0
+flet>=0.80.0
 
 # ODS Export
 odfpy>=1.4.1
