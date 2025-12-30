@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Konstanten und Konfiguration für die Anlagen-App."""
+
+# App-Informationen
+APP_VERSION = '2.3.4'
+APP_NAME = 'Anlagen Eingabe'
+APP_ID = 'com.beispiel.anlageneingabe'
+
+# Dateinamen
+DATEINAME = 'anlagen_daten.json'
+SETTINGS_DATEINAME = 'app_settings.json'
+
+# Layout-Konstanten
+SPALTEN_PRO_EINHEIT = 12
+
+# Standard-Einstellungen (als Referenz für neue Installationen)
+DEFAULT_SETTINGS = {
+    'default_felder': 3,
+    'default_reihen': 7,
+    'fontsize_gemergte_zelle': 7,
+    'fontsize_beschriftung_zelle': 7,
+    'fontsize_inhalt_zelle': 6,
+    'spalten_breite': 1.75,  # in cm
+    'beschriftung_row_hoehe': 0.5,  # in cm
+    'inhalt_row_hoehe': 1.5,  # in cm
+    'zellen_umrandung': True,  # Umrandung aktiviert
+    # Page Layout Einstellungen
+    'seite_breite': 29.7,  # A4 Querformat Breite in cm
+    'seite_hoehe': 21.0,  # A4 Querformat Höhe in cm
+    'rand_oben': 2.0,  # in cm
+    'rand_unten': 1.5,  # in cm
+    'rand_links': 1.0,  # in cm
+    'rand_rechts': 1.0  # in cm
+}
+
+# Android Request Codes
+CREATE_FILE_REQUEST = 1
+
+# Export-Dateinamen
+EXPORT_DATEN_DATEI = 'Verteiler_Daten.json'
+EXPORT_SETTINGS_DATEI = 'Verteiler_Einstellungen.json'
