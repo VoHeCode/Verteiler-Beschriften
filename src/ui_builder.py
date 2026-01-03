@@ -49,6 +49,18 @@ class UIBuilder:
     def erstelle_hauptansicht(self):
         """Erstellt die Hauptansicht."""
 
+        # Statusleiste
+        status_bar = ft.Row(
+            [
+                ft.Text("Verteiler Beschriften", 
+                       weight=ft.FontWeight.BOLD, 
+                       size=16),
+                ft.Text("", size=10, color=ft.Colors.GREY_700),
+            ],
+            spacing=10,
+        )
+        self.app.ui["status_text"] = status_bar.controls[1]
+
         # Kunden-Auswahl
         dd = ft.Dropdown(
             options=[ft.dropdown.Option(k) for k in self.app.alle_kunden],
@@ -119,6 +131,8 @@ class UIBuilder:
 
         return ft.Column(
             [
+                status_bar,
+                ft.Divider(height=1, color=ft.Colors.GREY_400),
                 ft.Text("Aktiver Kunde:", weight=ft.FontWeight.BOLD),
                 dd,
                 nav,
@@ -143,6 +157,9 @@ class UIBuilder:
                                   expand=True),
                 ft.ElevatedButton("KUNDE EXPORTIEREN",
                                   on_click=self.app.exportiere_kunde_odt,
+                                  expand=True),
+                ft.ElevatedButton("ALLE KUNDEN EXPORTIEREN",
+                                  on_click=self.app.exportiere_alle_kunden,
                                   expand=True),
                 ft.ElevatedButton("EINSTELLUNGEN",
                                   on_click=self.app.navigiere_zu_settings,

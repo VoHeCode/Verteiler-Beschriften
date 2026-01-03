@@ -20,13 +20,26 @@ class AnlagenApp:
         self.page = page
         self.page.title = f"{APP_NAME} V{APP_VERSION}"
         self.page.scroll = ft.ScrollMode.AUTO
+        self.page.theme_mode = ft.ThemeMode.LIGHT  # Fix für Android Dark Mode
 
         # Registry für ALLE UI-Elemente
         self.ui = {}
 
         # Datenpfad
-        self.data_path = Path.home() / ".anlagen_app"
-        self.data_path.mkdir(exist_ok=True)
+        import os
+        storage = os.getenv("FLET_APP_STORAGE_DATA")
+        if storage:
+            # Mobile (Android/iOS) - App-interner Speicher
+            self.data_path = Path(storage) / "Verteiler_Beschriften"
+        else:
+            # Desktop - Sichtbarer Ordner in Dokumente
+            docs_de = Path.home() / "Dokumente" / "Verteiler_Beschriften"
+            docs_en = Path.home() / "Documents" / "Verteiler_Beschriften"
+            if docs_de.parent.exists():
+                self.data_path = docs_de
+            else:
+                self.data_path = docs_en
+        self.data_path.mkdir(parents=True, exist_ok=True)
 
         # Manager
         self.data_manager = DataManager(self.data_path)
@@ -78,18 +91,51 @@ class AnlagenApp:
         )
         self.page.show_dialog(snackbar)
 
+    def update_status(self, text=""):
+        """Aktualisiert den Statustext in der Titelzeile."""
+        if "status_text" in self.ui:
+            self.ui["status_text"].value = text
+            self.page.update()
+
+    def _test_write_access(self, path: Path) -> bool:
+        """Testet Schreibzugriff auf Pfad."""
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            test_file = path / ".test_write"
+            test_file.write_text("test")
+            test_file.unlink()
+            return True
+        except:
+            return False
+
     def get_export_path(self):
-        """Gibt OS-spezifischen Export-Pfad zurück."""
-        from pathlib import Path
+        """Gibt OS-spezifischen Export-Pfad mit Schreibtest zurück."""
+        kundenname = self.aktiver_kunde_key or "Allgemein"
         
         if self.page.platform == "android":
-            base = Path("/storage/emulated/0/Download/Verteiler_beschriften")
+            # Android: Mehrere Pfade probieren
+            paths = [
+                Path("/storage/emulated/0/Documents/Verteiler_beschriften/Export") / kundenname,
+                Path("/storage/emulated/0/Download/Verteiler_beschriften/Export") / kundenname,
+            ]
+            for p in paths:
+                if self._test_write_access(p):
+                    return p
+            
+            # Fallback: App-interner Speicher
+            import os
+            storage = os.getenv("FLET_APP_STORAGE_DATA")
+            if storage:
+                fallback = Path(storage) / "Export" / kundenname
+            else:
+                fallback = self.data_path / "Export" / kundenname
+            fallback.mkdir(parents=True, exist_ok=True)
+            return fallback
         else:
-            # Desktop: Downloads oder Documents
-            base = Path.home() / "Downloads" / "Verteiler_beschriften"
-        
-        base.mkdir(parents=True, exist_ok=True)
-        return base
+            # Desktop: Export-Unterordner in Datenpfad
+            base = self.data_path / "Export" / kundenname
+            base.mkdir(parents=True, exist_ok=True)
+            return base
 
     def confirm_dialog(self, title, message, on_yes_callback):
         """Zeigt modalen Bestätigungsdialog mit Ja/Nein Buttons."""
@@ -126,12 +172,59 @@ class AnlagenApp:
     # Initialisierung
     # ---------------------------------------------------------
 
+    def pruefe_import_ordner(self):
+        """Prüft Import-Ordner auf JSON-Dateien und importiert diese."""
+        import_path = self.data_path.parent / "Import" if self.page.platform != "android" else self.data_path / "Import"
+        
+        if self.page.platform == "android":
+            # Android: Zusätzlich Download-Ordner prüfen
+            paths = [
+                Path("/storage/emulated/0/Documents/Verteiler_beschriften/Import"),
+                Path("/storage/emulated/0/Download/Verteiler_beschriften/Import"),
+            ]
+            for p in paths:
+                if p.exists():
+                    import_path = p
+                    break
+        
+        if not import_path.exists():
+            return
+        
+        # Suche JSON-Dateien
+        json_files = list(import_path.glob("*.json"))
+        if not json_files:
+            return
+        
+        # Importiere erste gefundene Datei
+        import_file = json_files[0]
+        try:
+            import shutil
+            # Kopiere nach Datenpfad
+            target = self.data_path / "anlagen_daten.json"
+            shutil.copy(import_file, target)
+            
+            # Lösche aus Import-Ordner
+            import_file.unlink()
+            
+            self.dialog("Import erfolgreich", 
+                       f"Daten importiert aus:\n{import_file.name}")
+        except Exception as e:
+            self.dialog("Import-Fehler", str(e))
+
     def init_app(self):
+        self.pruefe_import_ordner()
         self.lade_daten()
         haupt = self.ui_builder.erstelle_hauptansicht()
         self.page.add(haupt)
         self.page.update()
         self.aktualisiere_aktive_daten()
+        
+        # Statusleiste: Desktop = Datenpfad, Android = Export-Pfad
+        if self.page.platform == "android":
+            status = "Export: /storage/.../Download/Verteiler_beschriften/Export"
+        else:
+            status = f"Daten: {self.data_path}"
+        self.update_status(status)
 
     # ---------------------------------------------------------
     # Daten
@@ -731,6 +824,49 @@ class AnlagenApp:
             self.dialog("Export erfolgreich", "\n".join(dateien))
         else:
             self.dialog("Export-Fehler", fehler)
+
+    def exportiere_alle_kunden(self, _e):
+        """Exportiert alle Kundendaten als JSON in Export-Ordner."""
+        try:
+            import shutil
+            from datetime import datetime
+            
+            # Quelle: aktuelle Datendatei
+            source = self.data_path / "anlagen_daten.json"
+            if not source.exists():
+                return self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
+            
+            # Ziel: Export-Ordner (ohne Kundenname)
+            if self.page.platform == "android":
+                paths = [
+                    Path("/storage/emulated/0/Documents/Verteiler_beschriften/Export"),
+                    Path("/storage/emulated/0/Download/Verteiler_beschriften/Export"),
+                ]
+                export_base = None
+                for p in paths:
+                    if self._test_write_access(p):
+                        export_base = p
+                        break
+                if not export_base:
+                    export_base = self.data_path / "Export"
+            else:
+                export_base = self.data_path / "Export"
+            
+            export_base.mkdir(parents=True, exist_ok=True)
+            
+            # Dateiname mit Timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            target = export_base / f"anlagen_daten_{timestamp}.json"
+            
+            # Kopiere Datei
+            shutil.copy(source, target)
+            
+            self.show_file_snackbar("Exportiert", str(target))
+            self.dialog("Export erfolgreich", 
+                       f"Alle Kundendaten exportiert:\n{target.name}\n\nOrdner: {export_base}")
+        
+        except Exception as e:
+            self.dialog("Export-Fehler", str(e))
 
     def importiere_von_downloads(self, _e):
         ok, dateien, fehler = import_downloads(self.data_manager)
