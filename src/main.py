@@ -137,6 +137,29 @@ class AnlagenApp:
             base.mkdir(parents=True, exist_ok=True)
             return base
 
+    def get_export_base_path(self):
+        """Gibt Basis-Export-Pfad zurück (ohne Kundenname) - für Statusanzeige."""
+        if self.page.platform == "android":
+            # Android: Mehrere Pfade probieren
+            paths = [
+                Path("/storage/emulated/0/Documents/Verteiler_beschriften/Export"),
+                Path("/storage/emulated/0/Download/Verteiler_beschriften/Export"),
+            ]
+            for p in paths:
+                if self._test_write_access(p):
+                    return p
+            
+            # Fallback: App-interner Speicher
+            import os
+            storage = os.getenv("FLET_APP_STORAGE_DATA")
+            if storage:
+                return Path(storage) / "Export"
+            else:
+                return self.data_path / "Export"
+        else:
+            # Desktop: Export-Unterordner in Datenpfad
+            return self.data_path / "Export"
+
     def confirm_dialog(self, title, message, on_yes_callback):
         """Zeigt modalen Bestätigungsdialog mit Ja/Nein Buttons."""
         def handle_yes(e):
@@ -219,12 +242,9 @@ class AnlagenApp:
         self.page.update()
         self.aktualisiere_aktive_daten()
         
-        # Statusleiste: Desktop = Datenpfad, Android = Export-Pfad
-        if self.page.platform == "android":
-            status = "Export: /storage/.../Download/Verteiler_beschriften/Export"
-        else:
-            status = f"Daten: {self.data_path}"
-        self.update_status(status)
+        # Statusleiste: Zeige Export-Pfad (user-zugänglich)
+        export_base = self.get_export_base_path()
+        self.update_status(f"Export: {export_base}")
 
     # ---------------------------------------------------------
     # Daten
@@ -756,7 +776,7 @@ class AnlagenApp:
             self.ui["teile_button"].disabled = False
             self.page.update()
             self.show_file_snackbar("Exportiert", str(pfad))
-            self.dialog("Erfolg", f"ODS exportiert: {pfad.name}")
+            self.dialog("Erfolg", f"ODS exportiert:\n\n{pfad}")
 
         except ValueError as e:
             self.dialog("Validierungs-Fehler", str(e))
@@ -779,9 +799,17 @@ class AnlagenApp:
         kunde = self.alle_kunden[self.aktiver_kunde_key]
 
         try:
-            pfad = exportiere_kunde_odt(kunde, self.aktiver_kunde_key, self.get_export_path())
+            # Android nutzt manuelle ODT-Erstellung
+            use_manual = (self.page.platform == "android")
+            
+            pfad = exportiere_kunde_odt(
+                kunde, 
+                self.aktiver_kunde_key, 
+                self.get_export_path(),
+                use_manual=use_manual
+            )
             self.show_file_snackbar("Exportiert", str(pfad))
-            self.dialog('Erfolg', f'ODT exportiert: {pfad.name}')
+            self.dialog('Erfolg', f'ODT exportiert:\n\n{pfad}')
 
         except Exception as e:
             import traceback
@@ -867,6 +895,23 @@ class AnlagenApp:
         
         except Exception as e:
             self.dialog("Export-Fehler", str(e))
+
+    def zeige_logs(self, _e):
+        """Zeigt Flet Console Logs für Debugging."""
+        import os
+        log_file = os.getenv("FLET_APP_CONSOLE")
+        if log_file:
+            try:
+                with open(log_file, "r") as f:
+                    logs = f.read()
+                # Zeige letzte 5000 Zeichen
+                if len(logs) > 5000:
+                    logs = "...\n" + logs[-5000:]
+                self.dialog("Debug Logs", logs)
+            except Exception as e:
+                self.dialog("Log-Fehler", f"Konnte Logs nicht lesen: {e}")
+        else:
+            self.dialog("Keine Logs", "FLET_APP_CONSOLE nicht verfügbar")
 
     def importiere_von_downloads(self, _e):
         ok, dateien, fehler = import_downloads(self.data_manager)

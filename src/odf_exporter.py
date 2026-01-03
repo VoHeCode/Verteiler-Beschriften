@@ -37,6 +37,7 @@ except ImportError:
 
 # Android: Manuelle ODS-Erstellung
 from ods_manual import create_ods_manual
+from odt_manual import create_odt_manual
 
 from constants import SPALTEN_PRO_EINHEIT
 
@@ -541,8 +542,8 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, use_ma
         return exportiere_anlage_ods_odfpy(anlage, settings, export_base_path, kundenname)
 
 
-def exportiere_kunde_odt(kunde, kundenname, export_base_path):
-    """Exportiert alle Daten eines Kunden als ODT-Datei.
+def exportiere_kunde_odt_odfpy(kunde, kundenname, export_base_path):
+    """Exportiert alle Daten eines Kunden als ODT-Datei mit odfpy (Desktop).
 
     Args:
         kunde (dict): Kunden-Dictionary mit allen Daten
@@ -555,6 +556,9 @@ def exportiere_kunde_odt(kunde, kundenname, export_base_path):
     Raises:
         ValueError: Wenn Kunde ungültig ist
     """
+    if not HAS_ODFPY:
+        raise RuntimeError('odfpy ist nicht installiert')
+        
     if not kunde:
         raise ValueError('Kein Kunde zum Exportieren vorhanden.')
 
@@ -706,3 +710,67 @@ def exportiere_kunde_odt(kunde, kundenname, export_base_path):
     doc.save(str(export_pfad))
 
     return export_pfad
+
+
+def exportiere_kunde_odt_manual(kunde, kundenname, export_base_path):
+    """Exportiert alle Daten eines Kunden als ODT-Datei manuell (Android).
+
+    Args:
+        kunde (dict): Kunden-Dictionary mit allen Daten
+        kundenname (str): Name des Kunden
+        export_base_path (Path): Basis-Pfad für Export-Verzeichnis
+
+    Returns:
+        Path: Pfad zur exportierten Datei
+
+    Raises:
+        ValueError: Wenn Kunde ungültig ist
+    """
+    if not kunde:
+        raise ValueError('Kein Kunde zum Exportieren vorhanden.')
+    
+    # Konvertiere Kunde für manuelle ODT-Erstellung
+    kunde_data = {
+        'kundenname': kundenname,
+        'projekt': kunde.get('projekt', ''),
+        'datum': kunde.get('datum', ''),
+        'adresse': kunde.get('adresse', ''),
+        'plz': kunde.get('plz', ''),
+        'ort': kunde.get('ort', ''),
+        'ansprechpartner': kunde.get('ansprechpartner', ''),
+        'telefonnummer': kunde.get('telefonnummer', ''),
+        'email': kunde.get('email', ''),
+        'anlagen': kunde.get('anlagen', [])
+    }
+    
+    # Speichern
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dateiname = f'Kunde_{kundenname.replace(" ", "_")}_{timestamp}.odt'
+    export_pfad = Path(export_base_path) / kundenname / dateiname
+    os.makedirs(export_pfad.parent, exist_ok=True)
+    
+    # Erstelle ODT manuell
+    create_odt_manual(kunde_data, str(export_pfad))
+    
+    return export_pfad
+
+
+def exportiere_kunde_odt(kunde, kundenname, export_base_path, use_manual=False):
+    """Exportiert alle Daten eines Kunden als ODT-Datei (Wrapper-Funktion).
+
+    Args:
+        kunde (dict): Kunden-Dictionary mit allen Daten
+        kundenname (str): Name des Kunden
+        export_base_path (Path): Basis-Pfad für Export-Verzeichnis
+        use_manual (bool): True für manuelle Erstellung (Android), False für odfpy (Desktop)
+
+    Returns:
+        Path: Pfad zur exportierten Datei
+
+    Raises:
+        ValueError: Wenn Kunde ungültig ist
+    """
+    if use_manual or not HAS_ODFPY:
+        return exportiere_kunde_odt_manual(kunde, kundenname, export_base_path)
+    else:
+        return exportiere_kunde_odt_odfpy(kunde, kundenname, export_base_path)
