@@ -317,6 +317,20 @@ class UIBuilder:
             on_change=self.app.auto_speichere_settings,
         )
 
+        # Datumsformat-Dropdown
+        datum_dropdown = ft.Dropdown(
+            label="Datumsformat",
+            options=[
+                ft.dropdown.Option("ISO", "ISO (YYYY-MM-DD)"),
+                ft.dropdown.Option("DE", "Deutsch (DD.MM.YYYY)"),
+                ft.dropdown.Option("EN", "Englisch (MM/DD/YYYY)"),
+                ft.dropdown.Option("SHORT", "Kurz (DD.MM.YY)"),
+            ],
+            value=self.app.settings.get("datum_format", "DE"),
+            on_change=self.app.auto_speichere_settings,
+        )
+        self.app.ui["settings_datum_format"] = datum_dropdown
+
         return ft.Column(
             [
                 back,
@@ -327,6 +341,7 @@ class UIBuilder:
                         weight=ft.FontWeight.BOLD, size=11),
                 self.app.ui["settings_felder_input"],
                 self.app.ui["settings_reihen_input"],
+                self.app.ui["settings_datum_format"],
                 ft.Divider(),
                 ft.Text("Schriftgrößen",
                         weight=ft.FontWeight.BOLD, size=11),

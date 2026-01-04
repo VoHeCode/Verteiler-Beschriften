@@ -1,16 +1,85 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Anlagen Eingabe App – vereinfachte Registry-Version."""
+"""Anlagen Eingabe App – Registry-Version mit Dataclasses & Optimierungen."""
 
-import flet as ft
+import os
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
+from date_utils import parse_date_input, format_date_display
+import flet as ft
 
 from constants import APP_VERSION, APP_NAME, SPALTEN_PRO_EINHEIT
 from data_manager import DataManager
 from ui_builder import UIBuilder
-from odf_exporter import validiere_eintraege, exportiere_anlage_ods, exportiere_kunde_odt
+from odf_exporter import (
+    validiere_eintraege,
+    exportiere_anlage_ods,
+    exportiere_kunde_odt,
+)
 
+# ---------------------------------------------------------
+# Dataclasses
+# ---------------------------------------------------------
+
+@dataclass
+class Anlage:
+    id: int
+    beschreibung: str = ""
+    name: str = ""
+    adresse: str = ""
+    plz_ort: str = ""
+    raum: str = ""
+    gebaeude: str = ""
+    geschoss: str = ""
+    funktion: str = ""
+    zaehlernummer: str = ""
+    zaehlerstand: str = ""
+    code: str = ""
+    bemerkung: str = ""
+    felder: int = 3
+    reihen: int = 7
+    text_inhalt: str = ""
+    teile_text: str = ""
+    teile_parsed: list = field(default_factory=list)
+    code_auto_last: str = ""
+
+@dataclass
+class Kunde:
+    id: int
+    projekt: str = ""
+    datum: str = ""
+    adresse: str = ""
+    plz: str = ""
+    ort: str = ""
+    ansprechpartner: str = ""
+    telefonnummer: str = ""
+    email: str = ""
+    anlagen: list[Anlage] = field(default_factory=list)
+
+# ---------------------------------------------------------
+# Dict-Konvertierung
+# ---------------------------------------------------------
+
+def anlage_to_dict(a: Anlage) -> dict:
+    return asdict(a)
+
+def anlage_from_dict(d: dict) -> Anlage:
+    return Anlage(**d)
+
+def kunde_to_dict(k: Kunde) -> dict:
+    d = asdict(k)
+    d["anlagen"] = [anlage_to_dict(a) for a in k.anlagen]
+    return d
+
+def kunde_from_dict(d: dict) -> Kunde:
+    anlagen = [anlage_from_dict(a) for a in d.get("anlagen", [])]
+    d = {k: v for k, v in d.items() if k != "anlagen"}
+    return Kunde(**d, anlagen=anlagen)
+
+# ---------------------------------------------------------
+# Hauptklasse
+# ---------------------------------------------------------
 
 class AnlagenApp:
     """Hauptanwendung – alle UI-Controls liegen in self.ui[...]"""
@@ -19,27 +88,46 @@ class AnlagenApp:
         self.page = page
         self.page.title = f"{APP_NAME} V{APP_VERSION}"
         self.page.scroll = ft.ScrollMode.AUTO
-        self.page.theme_mode = ft.ThemeMode.LIGHT  # Fix für Android Dark Mode
+        self.page.theme_mode = ft.ThemeMode.LIGHT
 
-        # Registry für ALLE UI-Elemente
         self.ui = {}
 
-        # Datenpfad - User-zugänglich auf ALLEN Plattformen
-        import os
+        # Mappings
+        self.kunden_mapping = {
+            "kunde_projekt": "projekt",
+            "kunde_datum": "datum",
+            "kunde_adresse": "adresse",
+            "kunde_plz": "plz",
+            "kunde_ort": "ort",
+            "kunde_ansprechpartner": "ansprechpartner",
+            "kunde_telefonnummer": "telefonnummer",
+            "kunde_email": "email",
+        }
+
+        self.detail_mapping = {
+            "beschr_input": "beschreibung",
+            "name_input": "name",
+            "adresse_input": "adresse",
+            "plz_ort_input": "plz_ort",
+            "raum_input": "raum",
+            "gebaeude_input": "gebaeude",
+            "geschoss_input": "geschoss",
+            "funktion_input": "funktion",
+            "zaehlernummer_input": "zaehlernummer",
+            "zaehlerstand_input": "zaehlerstand",
+            "code_input": "code",
+            "bemerkung_input": "bemerkung",
+        }
+
+        # Datenpfad
         storage = os.getenv("FLET_APP_STORAGE_DATA")
         if storage:
-            # Mobile (Android/iOS) - User-zugänglich unter Documents
             self.data_path = Path("/storage/emulated/0/Documents/Verteiler_Beschriften")
         else:
-            # Desktop - Sichtbarer Ordner in Dokumente
             docs_de = Path.home() / "Dokumente" / "Verteiler_Beschriften"
             docs_en = Path.home() / "Documents" / "Verteiler_Beschriften"
-            if docs_de.parent.exists():
-                self.data_path = docs_de
-            else:
-                self.data_path = docs_en
-        
-        # Erstelle Basis-Ordnerstruktur beim Start
+            self.data_path = docs_de if docs_de.parent.exists() else docs_en
+
         self.data_path.mkdir(parents=True, exist_ok=True)
         (self.data_path / "Export").mkdir(parents=True, exist_ok=True)
         (self.data_path / "Import").mkdir(parents=True, exist_ok=True)
@@ -58,12 +146,10 @@ class AnlagenApp:
         self.ausgewaehlte_anlage_id = None
         self.letzte_export_datei = None
 
-        # Dirty Flags für Speicheroptimierung
         self.daten_dirty = False
         self.settings_dirty = False
         self.original_kunde_values = {}
 
-        # UIBuilder
         self.ui_builder = UIBuilder(self, page)
 
         self.init_app()
@@ -77,7 +163,6 @@ class AnlagenApp:
         self.page.update()
 
     def dialog(self, title, msg):
-        """Zeigt einfachen Info-Dialog."""
         dlg = ft.AlertDialog(
             modal=True,
             title=ft.Text(title),
@@ -87,7 +172,6 @@ class AnlagenApp:
         self.page.show_dialog(dlg)
 
     def show_file_snackbar(self, action, filename):
-        """Zeigt Snackbar für Datei-Operationen (4 Sek)."""
         snackbar = ft.SnackBar(
             content=ft.Text(f"{action}: {filename}"),
             duration=4000,
@@ -95,38 +179,76 @@ class AnlagenApp:
         self.page.show_dialog(snackbar)
 
     def update_status(self, text=""):
-        """Aktualisiert den Statustext in der Titelzeile."""
         if "status_text" in self.ui:
             self.ui["status_text"].value = text
             self.page.update()
 
-    def get_export_path(self):
-        """Gibt Export-Pfad MIT Kundenname zurück - IMMER user-zugänglich."""
-        kundenname = self.aktiver_kunde_key or "Allgemein"
-        base = self.get_export_base_path()
-        export_path = base / kundenname
-        export_path.mkdir(parents=True, exist_ok=True)
-        return export_path
+    def _timestamp(self):
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    def get_export_base_path(self):
-        """Gibt Basis-Export-Pfad zurück (ohne Kundenname) - IMMER user-zugänglich.
-        
-        Returns:
-            Path: Export-Basis-Pfad
-        """
-        export_path = self.data_path / "Export"
-        export_path.mkdir(parents=True, exist_ok=True)
-        return export_path
+    def _copy_file(self, src: Path, dst: Path, label: str):
+        try:
+            import shutil
+            shutil.copy(src, dst)
+            self.show_file_snackbar("Exportiert", dst.name)
+            return True
+        except Exception as e:
+            self.dialog(f"{label}-Fehler", str(e))
+            return False
 
-    def confirm_dialog(self, title, message, on_yes_callback):
+    def map_set_obj(self, mapping, obj):
+        for ui_key, attr in mapping.items():
+            if ui_key in self.ui:
+                self.ui[ui_key].value = getattr(obj, attr, "")
+
+    def map_get_obj(self, mapping, obj):
+        for ui_key, attr in mapping.items():
+            if ui_key in self.ui:
+                setattr(obj, attr, self.ui[ui_key].value or "")
+
+    # ---------------------------------------------------------
+    # Initialisierung
+    # ---------------------------------------------------------
+
+    def pruefe_import_ordner(self):
+        import_path = self.data_path / "Import"
+        if not import_path.exists():
+            return
+
+        json_files = list(import_path.glob("*.json"))
+        if not json_files:
+            return
+
+        file = json_files[0]
+        try:
+            import shutil
+            target = self.data_path / "anlagen_daten.json"
+            shutil.copy(file, target)
+            file.unlink()
+            self.show_file_snackbar("Import erfolgreich", file.name)
+            self.dialog("Import erfolgreich", f"Daten importiert aus:\n{file.name}")
+        except Exception as e:
+            self.dialog("Import-Fehler", str(e))
+
+    def init_app(self):
+        self.pruefe_import_ordner()
+        self.lade_daten()
+        haupt = self.ui_builder.erstelle_hauptansicht()
+        self.page.add(haupt)
+        self.page.update()
+        self.aktualisiere_aktive_daten()
+        self.update_status(f"Daten: {self.data_path}")
+
+    def confirm_dialog(self, title: str, message: str, on_yes_callback):
         """Zeigt modalen Bestätigungsdialog mit Ja/Nein Buttons."""
-        def handle_yes(e):
+
+        def handle_yes(_event):
             self.page.pop_dialog()
             on_yes_callback()
-        
-        def handle_no(e):
+
+        def handle_no(_event):
             self.page.pop_dialog()
-        
+
         dlg = ft.AlertDialog(
             modal=True,
             title=ft.Text(title),
@@ -139,167 +261,79 @@ class AnlagenApp:
         )
         self.page.show_dialog(dlg)
 
-    def map_set(self, mapping, source):
-        for ui_key, data_key in mapping.items():
-            if ui_key in self.ui:
-                self.ui[ui_key].value = source.get(data_key, "")
-
-    def map_get(self, mapping, target):
-        for ui_key, data_key in mapping.items():
-            if ui_key in self.ui:
-                target[data_key] = self.ui[ui_key].value or ""
-
-    # ---------------------------------------------------------
-    # Initialisierung
-    # ---------------------------------------------------------
-
-    def pruefe_import_ordner(self):
-        """Prüft Import-Ordner auf JSON-Dateien und importiert diese."""
-        import_path = self.data_path / "Import"
-        
-        if not import_path.exists():
-            return
-        
-        # Suche JSON-Dateien
-        json_files = list(import_path.glob("*.json"))
-        if not json_files:
-            return
-        
-        # Importiere erste gefundene Datei
-        import_file = json_files[0]
-        try:
-            import shutil
-            # Kopiere nach Datenpfad
-            target = self.data_path / "anlagen_daten.json"
-            shutil.copy(import_file, target)
-            
-            # Lösche aus Import-Ordner
-            import_file.unlink()
-            
-            self.show_file_snackbar("Import erfolgreich", import_file.name)
-            self.dialog("Import erfolgreich", 
-                       f"Daten importiert aus:\n{import_file.name}")
-        except Exception as e:
-            self.dialog("Import-Fehler", str(e))
-
-    def init_app(self):
-        self.pruefe_import_ordner()
-        self.lade_daten()
-        haupt = self.ui_builder.erstelle_hauptansicht()
-        self.page.add(haupt)
-        self.page.update()
-        self.aktualisiere_aktive_daten()
-        
-        # Statusleiste: Zeige Datenpfad (user-zugänglich auf allen Plattformen)
-        self.update_status(f"Daten: {self.data_path}")
+    def get_export_base_path(self) -> Path:
+        """
+        Liefert den Export-Ordner:
+        <Datenpfad>/Export
+        """
+        export_path = self.data_path / "Export"
+        export_path.mkdir(parents=True, exist_ok=True)
+        return export_path
 
     # ---------------------------------------------------------
     # Daten
     # ---------------------------------------------------------
 
     def lade_daten(self):
-        self.alle_kunden, self.next_kunden_id, self.next_anlage_id = self.data_manager.lade_daten()
+        """Lädt Daten über DataManager und konvertiert zu Dataclasses."""
+        alle_kunden_raw, self.next_kunden_id, self.next_anlage_id = self.data_manager.lade_daten()
+        self.alle_kunden = {
+            name: kunde_from_dict(kdict) for name, kdict in alle_kunden_raw.items()
+        }
         if self.alle_kunden:
             self.aktiver_kunde_key = next(iter(self.alle_kunden))
         self.show_file_snackbar("Geladen", "anlagen_daten.json")
 
     def speichere_daten(self, _e=None):
-        # Nur speichern wenn Änderungen vorhanden
+        """Schreibt Dataclasses zurück in Dict-Struktur und speichert."""
         if not self.daten_dirty:
             return
-        
-        # Anlagen-Daten zurückschreiben zum aktiven Kunden
-        if self.aktiver_kunde_key and self.aktiver_kunde_key in self.alle_kunden:
-            self.alle_kunden[self.aktiver_kunde_key]["anlagen"] = self.anlagen_daten
 
-        out = {}
-        for key, kunde in self.alle_kunden.items():
-            out[key] = {
-                "id": kunde["id"],
-                "projekt": kunde.get("projekt", ""),
-                "datum": kunde.get("datum", ""),
-                "adresse": kunde.get("adresse", ""),
-                "plz": kunde.get("plz", ""),
-                "ort": kunde.get("ort", ""),
-                "ansprechpartner": kunde.get("ansprechpartner", ""),
-                "telefonnummer": kunde.get("telefonnummer", ""),
-                "email": kunde.get("email", ""),
-                "anlagen": kunde.get("anlagen", []),
-            }
+        if self.aktiver_kunde_key in self.alle_kunden:
+            self.alle_kunden[self.aktiver_kunde_key].anlagen = list(self.anlagen_daten)
 
-        ok, fehler = self.data_manager.speichere_daten(out, self.next_kunden_id, self.next_anlage_id)
+        out = {key: kunde_to_dict(kunde) for key, kunde in self.alle_kunden.items()}
+
+        ok, fehler = self.data_manager.speichere_daten(
+            out, self.next_kunden_id, self.next_anlage_id
+        )
         if not ok:
             self.dialog("Speicher-Fehler", fehler)
         else:
-            self.daten_dirty = False  # Flag zurücksetzen nach erfolgreichem Speichern
+            self.daten_dirty = False
             self.show_file_snackbar("Gespeichert", "anlagen_daten.json")
 
     def speichere_projekt_daten(self, _e=None):
         if not self.aktiver_kunde_key:
             return
-
         kunde = self.alle_kunden[self.aktiver_kunde_key]
-
-        mapping = {
-            "kunde_projekt": "projekt",
-            "kunde_datum": "datum",
-            "kunde_adresse": "adresse",
-            "kunde_plz": "plz",
-            "kunde_ort": "ort",
-            "kunde_ansprechpartner": "ansprechpartner",
-            "kunde_telefonnummer": "telefonnummer",
-            "kunde_email": "email",
-        }
-
-        self.map_get(mapping, kunde)
-        
-        # Markiere als geändert und speichere
+        self.map_get_obj(self.kunden_mapping, kunde)
         self.daten_dirty = True
         self.speichere_daten()
 
     def on_kunde_feld_blur(self, e):
-        """Prüft bei Feldverlassen ob Wert geändert wurde."""
+        """Prüft bei Feldverlassen, ob Wert geändert wurde."""
         if not self.aktiver_kunde_key:
             return
-        
-        # Finde UI-Key des Feldes
-        field_key = None
-        for key, field in self.ui.items():
-            if field == e.control:
-                field_key = key
-                break
-        
+
+        field_key = next((k for k, ctrl in self.ui.items() if ctrl == e.control), None)
         if not field_key or field_key not in self.original_kunde_values:
             return
-        
-        # Vergleiche mit Original
-        current_value = e.control.value or ""
-        original_value = self.original_kunde_values[field_key]
-        
-        if current_value != original_value:
-            # Wert hat sich geändert - schreibe direkt in RAM
+
+        current = e.control.value or ""
+
+        # ⭐ Datumsfeld → immer ISO speichern
+        if field_key == "kunde_datum":
+            current = parse_date_input(current)
+
+        original = self.original_kunde_values[field_key]
+
+        if current != original:
             kunde = self.alle_kunden[self.aktiver_kunde_key]
-            
-            # Mapping UI-Key → Daten-Key
-            mapping = {
-                "kunde_projekt": "projekt",
-                "kunde_datum": "datum",
-                "kunde_adresse": "adresse",
-                "kunde_plz": "plz",
-                "kunde_ort": "ort",
-                "kunde_ansprechpartner": "ansprechpartner",
-                "kunde_telefonnummer": "telefonnummer",
-                "kunde_email": "email",
-            }
-            
-            data_key = mapping.get(field_key)
-            if data_key:
-                kunde[data_key] = current_value
-            
-            # Aktualisiere Original-Wert
-            self.original_kunde_values[field_key] = current_value
-            
-            # Markiere als geändert und speichere
+            attr = self.kunden_mapping.get(field_key)
+            if attr:
+                setattr(kunde, attr, current)
+            self.original_kunde_values[field_key] = current
             self.daten_dirty = True
             self.speichere_daten()
 
@@ -308,83 +342,65 @@ class AnlagenApp:
             return
 
         kunde = self.alle_kunden[self.aktiver_kunde_key]
+        self.map_set_obj(self.kunden_mapping, kunde)
 
-        mapping = {
-            "kunde_projekt": "projekt",
-            "kunde_datum": "datum",
-            "kunde_adresse": "adresse",
-            "kunde_plz": "plz",
-            "kunde_ort": "ort",
-            "kunde_ansprechpartner": "ansprechpartner",
-            "kunde_telefonnummer": "telefonnummer",
-            "kunde_email": "email",
-        }
+        # ⭐ Datumsfeld nachträglich im User-Format anzeigen
+        iso = getattr(kunde, "datum", "")  # oder kunde.kunde_datum
+        fmt = self.settings.get("datum_format", "DE")
+        if "kunde_datum" in self.ui:
+            self.ui["kunde_datum"].value = format_date_display(iso, fmt)
 
-        self.map_set(mapping, kunde)
-        
-        # Aktualisiere kunde_input mit aktivem Kundennamen
         if "kunde_input" in self.ui:
             self.ui["kunde_input"].value = self.aktiver_kunde_key
-        
-        # Original-Werte für Vergleich speichern
+
         self.original_kunde_values = {
-            key: kunde.get(data_key, "") for key, data_key in mapping.items()
+            key: getattr(kunde, attr, "") for key, attr in self.kunden_mapping.items()
         }
 
-        self.anlagen_daten = kunde.get("anlagen", [])
+        self.anlagen_daten = list(kunde.anlagen)
         self.aktualisiere_anlagen_tabelle()
         self.page.update()
 
     # ---------------------------------------------------------
-    # Tabelle
+    # Navigation (optimiert)
     # ---------------------------------------------------------
 
-    def aktualisiere_anlagen_tabelle(self):
-        """Aktualisiert die Anlagen-Liste mit RadioButtons."""
-        if "anlagen_container" not in self.ui:
+    def navigate(self, view_name: str):
+        """Zentrale Navigation: baut Views konsistent auf."""
+        if view_name == "main":
+            view = self.ui_builder.erstelle_hauptansicht()
+            self.show(view)
+            self.aktualisiere_anlagen_tabelle()
             return
 
-        container = self.ui["anlagen_container"]
-        container.controls.clear()
+        if view_name == "detail":
+            view = self.ui_builder.erstelle_anlage_detail_view()
+            self.map_set_obj(self.detail_mapping, self.aktuelle_anlage)
+            self.ui["felder_input"].value = str(self.aktuelle_anlage.felder)
+            self.ui["reihen_input"].value = str(self.aktuelle_anlage.reihen)
+            self.ui["text_editor"].value = self.aktuelle_anlage.text_inhalt
+            self.info_aktualisieren()
+            self.show(view)
+            return
 
-        for anlage in self.anlagen_daten:
-            anlage_id = str(anlage["id"])
-            
-            # Erste Zeile: Radio | ID | Beschreibung
-            zeile1 = ft.Row([
-                ft.Radio(value=anlage_id, label=f"ID {anlage_id}: {anlage['beschreibung']}"),
-            ], spacing=5)
-            
-            # Zweite Zeile: Code | Ort (eingerückt)
-            zeile2 = ft.Row([
-                ft.Container(width=50),  # Einrückung
-                ft.Text(f"Code: {anlage.get('code', '-')}", size=12),
-                ft.Text(f"Ort: {anlage.get('plz_ort', '-')}", size=12),
-            ], spacing=10)
-            
-            container.controls.append(zeile1)
-            container.controls.append(zeile2)
-            container.controls.append(ft.Divider(height=1))
+        if view_name == "settings":
+            view = self.ui_builder.erstelle_settings_dialog()
+            self.show(view)
 
-        # Auto-Select wenn nur 1 Anlage
-        if len(self.anlagen_daten) == 1:
-            anlage = self.anlagen_daten[0]
-            self.ausgewaehlte_anlage_id = anlage["id"]
-            self.aktuelle_anlage = anlage
-            self.ui["anlagen_radiogroup"].value = str(anlage["id"])
+    def refresh_main(self):
+        self.navigate("main")
 
-        self.page.update()
+    def navigiere_zu_detail_view(self):
+        self.navigate("detail")
 
-    def on_anlage_selected(self, e):
-        """Callback wenn Anlage in RadioGroup ausgewählt wird."""
-        if e.control.value:
-            self.ausgewaehlte_anlage_id = int(e.control.value)
-            
-            # Setze auch aktuelle_anlage für Export
-            for anlage in self.anlagen_daten:
-                if anlage['id'] == self.ausgewaehlte_anlage_id:
-                    self.aktuelle_anlage = anlage
-                    break
+    def navigiere_zu_settings(self, _e):
+        self.navigate("settings")
+
+    def zurueck_zur_hauptansicht(self, _e):
+        self.speichere_detail_daten()
+        self.daten_dirty = True
+        self.speichere_daten()
+        self.navigate("main")
 
     # ---------------------------------------------------------
     # Kunden
@@ -417,19 +433,20 @@ class AnlagenApp:
         if name in self.alle_kunden:
             return self.dialog("Fehler", f'Kunde "{name}" existiert bereits.')
 
-        self.alle_kunden[name] = {
-            "id": self.next_kunden_id,
-            "projekt": "",
-            "datum": datetime.now().date().strftime("%Y-%m-%d"),
-            "adresse": "",
-            "plz": "",
-            "ort": "",
-            "ansprechpartner": "",
-            "telefonnummer": "",
-            "email": "",
-            "anlagen": [],
-        }
+        kunde = Kunde(
+            id=self.next_kunden_id,
+            projekt="",
+            datum=datetime.now().date().strftime("%Y-%m-%d"),
+            adresse="",
+            plz="",
+            ort="",
+            ansprechpartner="",
+            telefonnummer="",
+            email="",
+            anlagen=[],
+        )
 
+        self.alle_kunden[name] = kunde
         self.next_kunden_id += 1
         self.aktiver_kunde_key = name
 
@@ -437,13 +454,11 @@ class AnlagenApp:
         self.ui["kunden_auswahl"].value = name
 
         self.aktualisiere_aktive_daten()
-        
         self.daten_dirty = True
         self.speichere_daten()
 
         self.ui["kunde_input"].value = ""
         self.page.update()
-
         self.dialog("Erfolg", f'Kunde "{name}" hinzugefügt.')
 
     def _kunde_umbenennen(self, _e):
@@ -480,7 +495,9 @@ class AnlagenApp:
             if e.control.text == "Ja":
                 del self.alle_kunden[self.aktiver_kunde_key]
                 self.aktiver_kunde_key = next(iter(self.alle_kunden), None)
-                self.ui["kunden_auswahl"].options = [ft.dropdown.Option(k) for k in self.alle_kunden]
+                self.ui["kunden_auswahl"].options = [
+                    ft.dropdown.Option(k) for k in self.alle_kunden
+                ]
                 self.ui["kunden_auswahl"].value = self.aktiver_kunde_key
                 self.aktualisiere_aktive_daten()
                 self.daten_dirty = True
@@ -496,76 +513,54 @@ class AnlagenApp:
         self.page.update()
 
     # ---------------------------------------------------------
-    # Anlagen
+    # Anlagen (Teil 1)
     # ---------------------------------------------------------
 
     def anlage_hinzufuegen(self, _e):
         if not self.aktiver_kunde_key:
             return self.dialog("Fehler", "Bitte zuerst Kunden auswählen.")
 
-        neue = {
-            "id": self.next_anlage_id,
-            "beschreibung": f"Anlage {self.next_anlage_id}",
-            "name": "",
-            "adresse": "",
-            "plz_ort": "",
-            "raum": "",
-            "gebaeude": "",
-            "geschoss": "",
-            "funktion": "",
-            "zaehlernummer": "",
-            "zaehlerstand": "",
-            "code": "",
-            "bemerkung": "",
-            "felder": self.settings.get("default_felder", 3),
-            "reihen": self.settings.get("default_reihen", 7),
-            "text_inhalt": "",
-            "teile_text": "",
-            "teile_parsed": [],
-        }
+        neue = Anlage(
+            id=self.next_anlage_id,
+            beschreibung=f"Anlage {self.next_anlage_id}",
+            felder=self.settings.get("default_felder", 3),
+            reihen=self.settings.get("default_reihen", 7),
+        )
 
         self.next_anlage_id += 1
         self.anlagen_daten.append(neue)
-        
-        # Neue Anlage automatisch auswählen
-        self.ausgewaehlte_anlage_id = neue["id"]
+
+        self.ausgewaehlte_anlage_id = neue.id
         self.aktuelle_anlage = neue
-        
+
         self.daten_dirty = True
         self.speichere_daten()
-        
-        # Hauptansicht komplett neu aufbauen
-        hauptansicht = self.ui_builder.erstelle_hauptansicht()
-        self.show(hauptansicht)
-        self.aktualisiere_anlagen_tabelle()
 
-        self.dialog("Erfolg", f'Anlage "{neue["beschreibung"]}" hinzugefügt.')
+        self.refresh_main()
+        self.dialog("Erfolg", f'Anlage "{neue.beschreibung}" hinzugefügt.')
 
     def anlage_loeschen(self, _e):
         if not self.ausgewaehlte_anlage_id:
             return self.dialog("Fehler", "Bitte zuerst Anlage auswählen.")
 
-        anlage = next((a for a in self.anlagen_daten if a["id"] == self.ausgewaehlte_anlage_id), None)
-        
+        anlage = next((a for a in self.anlagen_daten if a.id == self.ausgewaehlte_anlage_id), None)
         if not anlage:
             return self.dialog("Fehler", "Anlage nicht gefunden.")
 
         def do_delete():
-            self.anlagen_daten = [a for a in self.anlagen_daten if a["id"] != self.ausgewaehlte_anlage_id]
-            # Zurückschreiben in alle_kunden
-            self.alle_kunden[self.aktiver_kunde_key]["anlagen"] = self.anlagen_daten
+            self.anlagen_daten = [
+                a for a in self.anlagen_daten if a.id != self.ausgewaehlte_anlage_id
+            ]
+            self.alle_kunden[self.aktiver_kunde_key].anlagen = list(self.anlagen_daten)
             self.ausgewaehlte_anlage_id = None
             self.daten_dirty = True
             self.speichere_daten()
-            # Hauptansicht komplett neu aufbauen
-            hauptansicht = self.ui_builder.erstelle_hauptansicht()
-            self.show(hauptansicht)
-            self.aktualisiere_anlagen_tabelle()
+            self.refresh_main()
 
         self.confirm_dialog(
             "Anlage löschen",
-            f'Wirklich Anlage "{anlage["beschreibung"]}" löschen?',
-            do_delete
+            f'Wirklich Anlage "{anlage.beschreibung}" löschen?',
+            do_delete,
         )
 
     def bearbeite_ausgewaehlte_anlage(self, _e):
@@ -573,57 +568,64 @@ class AnlagenApp:
             return self.dialog("Fehler", "Bitte zuerst Anlage auswählen.")
 
         self.aktuelle_anlage = next(
-            (a for a in self.anlagen_daten if a["id"] == self.ausgewaehlte_anlage_id), None
+            (a for a in self.anlagen_daten if a.id == self.ausgewaehlte_anlage_id), None
         )
 
         if not self.aktuelle_anlage:
             return self.dialog("Fehler", "Anlage nicht gefunden.")
 
         self.navigiere_zu_detail_view()
-
     # ---------------------------------------------------------
-    # Navigation
+    # Anlagen (Teil 2)
     # ---------------------------------------------------------
 
-    def navigiere_zu_detail_view(self):
-        view = self.ui_builder.erstelle_anlage_detail_view()
+    def aktualisiere_anlagen_tabelle(self):
+        """Aktualisiert die Anlagen-Liste mit RadioButtons."""
+        container = self.ui.get("anlagen_container")
+        if not container:
+            return
 
-        mapping = {
-            "beschr_input": "beschreibung",
-            "name_input": "name",
-            "adresse_input": "adresse",
-            "plz_ort_input": "plz_ort",
-            "raum_input": "raum",
-            "gebaeude_input": "gebaeude",
-            "geschoss_input": "geschoss",
-            "funktion_input": "funktion",
-            "zaehlernummer_input": "zaehlernummer",
-            "zaehlerstand_input": "zaehlerstand",
-            "code_input": "code",
-            "bemerkung_input": "bemerkung",
-        }
+        container.controls.clear()
 
-        self.map_set(mapping, self.aktuelle_anlage)
+        for anlage in self.anlagen_daten:
+            anlage_id = str(anlage.id)
 
-        self.ui["felder_input"].value = str(self.aktuelle_anlage.get("felder", 3))
-        self.ui["reihen_input"].value = str(self.aktuelle_anlage.get("reihen", 7))
-        self.ui["text_editor"].value = self.aktuelle_anlage.get("text_inhalt", "")
+            zeile1 = ft.Row(
+                [ft.Radio(value=anlage_id, label=f"ID {anlage_id}: {anlage.beschreibung}")],
+                spacing=5,
+            )
 
-        self.info_aktualisieren()
+            zeile2 = ft.Row(
+                [
+                    ft.Container(width=50),
+                    ft.Text(f"Code: {anlage.code or '-'}", size=12),
+                    ft.Text(f"Ort: {anlage.plz_ort or '-'}", size=12),
+                ],
+                spacing=10,
+            )
 
-        self.show(view)
+            container.controls.extend([zeile1, zeile2, ft.Divider(height=1)])
 
-    def navigiere_zu_settings(self, _e):
-        view = self.ui_builder.erstelle_settings_dialog()
-        self.show(view)
+        # Auto-Select: Bei 1 Anlage erste wählen, sonst aktuelle beibehalten
+        if len(self.anlagen_daten) == 1:
+            anlage = self.anlagen_daten[0]
+            self.ausgewaehlte_anlage_id = anlage.id
+            self.aktuelle_anlage = anlage
 
-    def zurueck_zur_hauptansicht(self, _e):
-        self.speichere_detail_daten()
-        self.daten_dirty = True
-        self.speichere_daten()
-        haupt = self.ui_builder.erstelle_hauptansicht()
-        self.show(haupt)
-        self.aktualisiere_anlagen_tabelle()
+        # RadioGroup visuell setzen (bei jeder Anzahl von Anlagen)
+        if self.ausgewaehlte_anlage_id and "anlagen_radiogroup" in self.ui:
+            self.ui["anlagen_radiogroup"].value = str(self.ausgewaehlte_anlage_id)
+
+        self.page.update()
+
+    def on_anlage_selected(self, e):
+        """Callback, wenn Anlage in RadioGroup ausgewählt wird."""
+        if e.control.value:
+            self.ausgewaehlte_anlage_id = int(e.control.value)
+            for anlage in self.anlagen_daten:
+                if anlage.id == self.ausgewaehlte_anlage_id:
+                    self.aktuelle_anlage = anlage
+                    break
 
     # ---------------------------------------------------------
     # Detail-Daten
@@ -633,45 +635,30 @@ class AnlagenApp:
         if not self.aktuelle_anlage:
             return
 
-        mapping = {
-            "beschr_input": "beschreibung",
-            "name_input": "name",
-            "adresse_input": "adresse",
-            "plz_ort_input": "plz_ort",
-            "raum_input": "raum",
-            "gebaeude_input": "gebaeude",
-            "geschoss_input": "geschoss",
-            "funktion_input": "funktion",
-            "zaehlernummer_input": "zaehlernummer",
-            "zaehlerstand_input": "zaehlerstand",
-            "code_input": "code",
-            "bemerkung_input": "bemerkung",
-        }
-
-        self.map_get(mapping, self.aktuelle_anlage)
+        self.map_get_obj(self.detail_mapping, self.aktuelle_anlage)
 
         try:
-            self.aktuelle_anlage["felder"] = int(self.ui["felder_input"].value)
-        except:
-            self.aktuelle_anlage["felder"] = 3
+            self.aktuelle_anlage.felder = int(self.ui["felder_input"].value)
+        except (ValueError, TypeError):
+            self.aktuelle_anlage.felder = 3
 
         try:
-            self.aktuelle_anlage["reihen"] = int(self.ui["reihen_input"].value)
-        except:
-            self.aktuelle_anlage["reihen"] = 7
+            self.aktuelle_anlage.reihen = int(self.ui["reihen_input"].value)
+        except (ValueError, TypeError):
+            self.aktuelle_anlage.reihen = 7
 
-        self.aktuelle_anlage["text_inhalt"] = self.ui["text_editor"].value
+        self.aktuelle_anlage.text_inhalt = self.ui["text_editor"].value
 
     def auto_speichere_detail_daten(self, _e):
         self.speichere_detail_daten()
         self.daten_dirty = True
         self.speichere_daten()
 
-        # ---------------------------------------------------------
-        # Code-Generierung
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # Code-Generierung
+    # ---------------------------------------------------------
 
-    def generiere_code_string(self):
+    def generiere_code_string(self) -> str:
         fun = self.ui["funktion_input"].value.strip()
         geb = self.ui["gebaeude_input"].value.strip()
         etage = self.ui["geschoss_input"].value.strip()
@@ -684,21 +671,24 @@ class AnlagenApp:
             teile.append(f"++{geb}")
             if etage:
                 teile.append(f"-{etage}")
-        else:
-            if etage:
-                teile.append(f"++{etage}")
+        elif etage:
+            teile.append(f"++{etage}")
         if raum:
             teile.append(f"+{raum}")
 
         return "".join(teile).upper() if teile else ""
 
     def aktualisiere_anlagen_code(self, _e=None):
+        if not self.aktuelle_anlage:
+            return
+
         neuer = self.generiere_code_string()
-        alt = self.aktuelle_anlage.get("code_auto_last", "")
+        alt = self.aktuelle_anlage.code_auto_last or ""
 
         if not self.ui["code_input"].value or self.ui["code_input"].value == alt:
             self.ui["code_input"].value = neuer
-            self.aktuelle_anlage["code_auto_last"] = neuer
+            self.aktuelle_anlage.code_auto_last = neuer
+            self.aktuelle_anlage.code = neuer
             self.page.update()
 
         self.speichere_detail_daten()
@@ -708,76 +698,91 @@ class AnlagenApp:
         self.daten_dirty = True
         self.speichere_daten()
 
-        # ---------------------------------------------------------
-        # Info-Aktualisierung
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # Info-Berechnung (optimiert)
+    # ---------------------------------------------------------
+
+    def berechne_info(self, anlage: Anlage):
+        """Berechnet Validierung + verfügbare Spalten."""
+        felder = anlage.felder
+        reihen = anlage.reihen
+        text = anlage.text_inhalt
+
+        is_valid, gueltige, fehler, belegte, max_spalten = validiere_eintraege(
+            text, felder, reihen
+        )
+
+        verfuegbar = max_spalten - len(belegte)
+
+        return {
+            "is_valid": is_valid,
+            "gueltige": gueltige,
+            "fehler": fehler,
+            "belegte": belegte,
+            "max_spalten": max_spalten,
+            "verfuegbar": verfuegbar,
+        }
 
     def info_aktualisieren(self, _e=None):
         if not self.aktuelle_anlage:
             return False, []
 
         self.speichere_detail_daten()
-
-        felder = self.aktuelle_anlage["felder"]
-        reihen = self.aktuelle_anlage["reihen"]
-        text = self.aktuelle_anlage["text_inhalt"]
-
-        is_valid, gueltige, fehler_anzahl, belegte, max_spalten = validiere_eintraege(
-            text, felder, reihen
-        )
+        info = self.berechne_info(self.aktuelle_anlage)
 
         self.ui["info_label"].value = (
-            f"Gesamt-Spalten: {felder} × {reihen} × {SPALTEN_PRO_EINHEIT} = {max_spalten}"
+            f"Gesamt-Spalten: {self.aktuelle_anlage.felder} × "
+            f"{self.aktuelle_anlage.reihen} × {SPALTEN_PRO_EINHEIT} = "
+            f"{info['max_spalten']}"
         )
 
-        if fehler_anzahl > 0:
-            self.ui["verfuegbar_label"].value = f"❌ {fehler_anzahl} Fehler!"
+        if info["fehler"] > 0:
+            self.ui["verfuegbar_label"].value = f"❌ {info['fehler']} Fehler!"
             self.ui["verfuegbar_label"].color = ft.Colors.RED_700
         else:
-            verfuegbar = max_spalten - len(belegte)
-            self.ui["verfuegbar_label"].value = f"✓ Verfügbar: {verfuegbar} von {max_spalten}"
+            self.ui["verfuegbar_label"].value = (
+                f"✓ Verfügbar: {info['verfuegbar']} von {info['max_spalten']}"
+            )
             self.ui["verfuegbar_label"].color = (
-                ft.Colors.GREEN_700 if verfuegbar == max_spalten else ft.Colors.ORANGE_700
+                ft.Colors.GREEN_700
+                if info["verfuegbar"] == info["max_spalten"]
+                else ft.Colors.ORANGE_700
             )
 
         self.page.update()
-        return is_valid, gueltige
+        return info["is_valid"], info["gueltige"]
 
     def info_aktualisieren_und_speichern(self, e=None):
         self.info_aktualisieren(e)
         self.speichere_detail_daten()
         self.daten_dirty = True
         self.speichere_daten()
-
-        # ---------------------------------------------------------
-        # Export
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # Export / Import (optimiert)
+    # ---------------------------------------------------------
 
     def exportiere_anlage(self, _e):
         if not self.aktuelle_anlage:
             return self.dialog("Fehler", "Keine Anlage ausgewählt.")
 
         try:
-            # Hole Projekt vom aktiven Kunden
-            projekt = ''
-            if self.aktiver_kunde_key and self.aktiver_kunde_key in self.alle_kunden:
-                projekt = self.alle_kunden[self.aktiver_kunde_key].get('projekt', '')
-            
+            projekt = ""
+            if self.aktiver_kunde_key in self.alle_kunden:
+                projekt = self.alle_kunden[self.aktiver_kunde_key].projekt
+
             pfad = exportiere_anlage_ods(
-                self.aktuelle_anlage, 
-                self.settings, 
-                self.get_export_base_path(),  # OHNE Kundenname - wird in odf_exporter hinzugefügt
+                anlage_to_dict(self.aktuelle_anlage),
+                self.settings,
+                self.get_export_base_path(),
                 self.aktiver_kunde_key,
-                projekt
+                projekt,
             )
             self.letzte_export_datei = pfad
-            self.show_file_snackbar("Exportiert", str(pfad))
+            self.show_file_snackbar("Exportiert", pfad.name)
             self.dialog("Erfolg", f"ODS exportiert:\n\n{pfad}")
 
-        except ValueError as e:
-            self.dialog("Validierungs-Fehler", str(e))
         except Exception as e:
-            self.dialog("Export-Fehler", f"Fehler beim Export:\n{str(e)}")
+            self.dialog("Export-Fehler", str(e))
 
     def teile_letzte_ods(self, _e):
         if not self.letzte_export_datei or not self.letzte_export_datei.exists():
@@ -785,152 +790,177 @@ class AnlagenApp:
         self.dialog("Info", f"Datei: {self.letzte_export_datei}")
 
     def exportiere_kunde_odt(self, _e):
-        """Exportiert alle Daten des aktiven Kunden als ODT."""
-        if not self.aktiver_kunde_key or self.aktiver_kunde_key not in self.alle_kunden:
-            return self.dialog('Fehler', 'Kein Kunde ausgewählt.')
+        if not self.aktiver_kunde_key:
+            return self.dialog("Fehler", "Kein Kunde ausgewählt.")
 
         self.speichere_projekt_daten()
-
         kunde = self.alle_kunden[self.aktiver_kunde_key]
 
         try:
             pfad = exportiere_kunde_odt(
-                kunde, 
-                self.aktiver_kunde_key, 
-                self.get_export_base_path()  # OHNE Kundenname - wird in odf_exporter hinzugefügt
+                kunde_to_dict(kunde),
+                self.aktiver_kunde_key,
+                self.get_export_base_path(),
             )
-            self.show_file_snackbar("Exportiert", str(pfad))
-            self.dialog('Erfolg', f'ODT exportiert:\n\n{pfad}')
+            self.show_file_snackbar("Exportiert", pfad.name)
+            self.dialog("Erfolg", f"ODT exportiert:\n\n{pfad}")
 
         except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            self.dialog('Export-Fehler', f'Fehler beim ODT-Export:\n{str(e)}\n\n{error_details[:300]}')
-
-        # ---------------------------------------------------------
-        # Settings
-        # ---------------------------------------------------------
-
-    def auto_speichere_settings(self, _e):
-        try:
-            self.settings["default_felder"] = int(self.ui["settings_felder_input"].value)
-            self.settings["default_reihen"] = int(self.ui["settings_reihen_input"].value)
-            self.settings["fontsize_gemergte_zelle"] = int(self.ui["settings_font_gemergt_input"].value)
-            self.settings["fontsize_beschriftung_zelle"] = int(self.ui["settings_font_beschr_input"].value)
-            self.settings["fontsize_inhalt_zelle"] = int(self.ui["settings_font_inhalt_input"].value)
-            self.settings["spalten_breite"] = float(self.ui["settings_spalten_breite_input"].value)
-            self.settings["beschriftung_row_hoehe"] = float(self.ui["settings_beschr_hoehe_input"].value)
-            self.settings["inhalt_row_hoehe"] = float(self.ui["settings_inhalt_hoehe_input"].value)
-            self.settings["zellen_umrandung"] = self.ui["settings_umrandung_switch"].value
-            self.settings["rand_oben"] = float(self.ui["settings_rand_oben_input"].value)
-            self.settings["rand_unten"] = float(self.ui["settings_rand_unten_input"].value)
-            self.settings["rand_links"] = float(self.ui["settings_rand_links_input"].value)
-            self.settings["rand_rechts"] = float(self.ui["settings_rand_rechts_input"].value)
-
-            self.data_manager.speichere_settings(self.settings)
-        except:
-            pass
-
-        # ---------------------------------------------------------
-        # Export/Import
-        # ---------------------------------------------------------
+            self.dialog("Export-Fehler", str(e))
 
     def exportiere_zu_downloads(self, _e):
-        """Exportiert Daten und Settings als JSON zu Documents/Export."""
-        try:
-            import shutil
-            from datetime import datetime
-            
-            export_base = self.get_export_base_path()
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            dateien = []
-            
-            # Exportiere Anlagen-Daten
-            source_daten = self.data_path / "anlagen_daten.json"
-            if source_daten.exists():
-                target_daten = export_base / f"Verteiler_Daten_{timestamp}.json"
-                shutil.copy(source_daten, target_daten)
-                dateien.append(target_daten.name)
-                self.show_file_snackbar("Exportiert", target_daten.name)
-            
-            # Exportiere Settings
-            source_settings = self.data_path / "app_settings.json"
-            if source_settings.exists():
-                target_settings = export_base / f"Verteiler_Einstellungen_{timestamp}.json"
-                shutil.copy(source_settings, target_settings)
-                dateien.append(target_settings.name)
-                self.show_file_snackbar("Exportiert", target_settings.name)
-            
-            if dateien:
-                self.dialog("Export erfolgreich", 
-                           f"Dateien exportiert nach:\n{export_base}\n\n" + "\n".join(dateien))
-            else:
-                self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
-        
-        except Exception as e:
-            self.dialog("Export-Fehler", str(e))
+        """Exportiert Daten + Settings als JSON."""
+        export_base = self.get_export_base_path()
+        ts = self._timestamp()
+
+        daten = self.data_path / "anlagen_daten.json"
+        settings = self.data_path / "app_settings.json"
+
+        exported = []
+
+        if daten.exists():
+            dst = export_base / f"Verteiler_Daten_{ts}.json"
+            if self._copy_file(daten, dst, "Export"):
+                exported.append(dst.name)
+
+        if settings.exists():
+            dst = export_base / f"Verteiler_Einstellungen_{ts}.json"
+            if self._copy_file(settings, dst, "Export"):
+                exported.append(dst.name)
+
+        if exported:
+            self.dialog("Export erfolgreich", "Exportierte Dateien:\n" + "\n".join(exported))
+        else:
+            self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
 
     def exportiere_alle_kunden(self, _e):
-        """Exportiert alle Kunden als einzelne ODT-Dateien."""
+        """Exportiert alle Kunden als ODT."""
         if not self.alle_kunden:
             return self.dialog("Fehler", "Keine Kunden vorhanden.")
-        
+
         try:
-            anzahl = 0
-            for kundenname, kunde in self.alle_kunden.items():
-                pfad = exportiere_kunde_odt(
-                    kunde, 
-                    kundenname, 
-                    self.get_export_base_path()
-                )
-                anzahl += 1
-            
-            self.show_file_snackbar("Exportiert", f"{anzahl} Kunden als ODT")
-            self.dialog('Erfolg', f'{anzahl} Kunden als ODT exportiert:\n\n{self.get_export_base_path() / "Export"}')
-            
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            self.dialog('Export-Fehler', f'Fehler beim Export:\n{str(e)}\n\n{error_details[:300]}')
-    
-    def exportiere_alle_daten_json(self, _e):
-        """Exportiert alle Kundendaten als JSON in Export-Ordner."""
-        try:
-            import shutil
-            from datetime import datetime
-            
-            # Quelle: aktuelle Datendatei
-            source = self.data_path / "anlagen_daten.json"
-            if not source.exists():
-                return self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
-            
-            # Ziel: Export-Ordner (OHNE Kundenname)
-            export_base = self.get_export_base_path()
-            
-            # Dateiname mit Timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            target = export_base / f"anlagen_daten_{timestamp}.json"
-            
-            # Kopiere Datei
-            shutil.copy(source, target)
-            
-            self.show_file_snackbar("Exportiert", str(target))
-            self.dialog("Export erfolgreich", 
-                       f"Alle Kundendaten exportiert:\n\n{target}")
-        
+            count = 0
+            base = self.get_export_base_path()
+
+            for name, kunde in self.alle_kunden.items():
+                exportiere_kunde_odt(kunde_to_dict(kunde), name, base)
+                count += 1
+
+            self.show_file_snackbar("Exportiert", f"{count} Kunden")
+            self.dialog("Erfolg", f"{count} Kunden exportiert nach:\n{base}")
+
         except Exception as e:
             self.dialog("Export-Fehler", str(e))
 
+    def exportiere_alle_daten_json(self, _e):
+        """Exportiert anlagen_daten.json mit Zeitstempel."""
+        src = self.data_path / "anlagen_daten.json"
+        if not src.exists():
+            return self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
+
+        dst = self.get_export_base_path() / f"anlagen_daten_{self._timestamp()}.json"
+        if self._copy_file(src, dst, "Export"):
+            self.dialog("Export erfolgreich", f"Exportiert:\n{dst}")
+
+    def importiere_von_downloads(self, _e):
+        """Importiert JSON-Dateien aus /Import."""
+        import_path = self.data_path / "Import"
+        if not import_path.exists():
+            return self.dialog("Fehler", f"Import-Ordner fehlt:\n{import_path}")
+
+        json_files = list(import_path.glob("*.json"))
+        if not json_files:
+            return self.dialog("Fehler", "Keine JSON-Dateien im Import-Ordner.")
+
+        imported = []
+
+        for file in json_files:
+            name = file.name.lower()
+            target = None
+
+            if "daten" in name or "anlagen" in name:
+                target = self.data_path / "anlagen_daten.json"
+            elif "setting" in name or "einstellung" in name:
+                target = self.data_path / "app_settings.json"
+
+            if target:
+                if self._copy_file(file, target, "Import"):
+                    imported.append(file.name)
+
+            file.unlink()
+
+        if imported:
+            self.settings = self.data_manager.lade_settings()
+            self.lade_daten()
+            self.aktualisiere_aktive_daten()
+            self.dialog("Import erfolgreich", "Importiert:\n" + "\n".join(imported))
+        else:
+            self.dialog("Fehler", "Keine passenden JSON-Dateien gefunden.")
+
+    # ---------------------------------------------------------
+    # Settings (optimiert)
+    # ---------------------------------------------------------
+
+    def auto_speichere_settings(self, _e):
+        """Speichert alle Settings generisch über ein Mapping."""
+        mapping = {
+            "settings_felder_input": ("default_felder", int),
+            "settings_reihen_input": ("default_reihen", int),
+            "settings_font_gemergt_input": ("fontsize_gemergte_zelle", int),
+            "settings_font_beschr_input": ("fontsize_beschriftung_zelle", int),
+            "settings_font_inhalt_input": ("fontsize_inhalt_zelle", int),
+            "settings_spalten_breite_input": ("spalten_breite", float),
+            "settings_beschr_hoehe_input": ("beschriftung_row_hoehe", float),
+            "settings_inhalt_hoehe_input": ("inhalt_row_hoehe", float),
+            "settings_rand_oben_input": ("rand_oben", float),
+            "settings_rand_unten_input": ("rand_unten", float),
+            "settings_rand_links_input": ("rand_links", float),
+            "settings_rand_rechts_input": ("rand_rechts", float),
+        }
+
+        bool_mapping = {
+            "settings_umrandung_switch": "zellen_umrandung",
+        }
+
+        str_mapping = {
+            "settings_datum_format": "datum_format",
+        }
+
+        try:
+            for ui_key, (setting_key, cast) in mapping.items():
+                if ui_key in self.ui:
+                    raw = self.ui[ui_key].value
+                    try:
+                        self.settings[setting_key] = cast(raw)
+                    except (ValueError, TypeError):
+                        pass
+
+            for ui_key, setting_key in bool_mapping.items():
+                if ui_key in self.ui:
+                    self.settings[setting_key] = bool(self.ui[ui_key].value)
+
+            for ui_key, setting_key in str_mapping.items():
+                if ui_key in self.ui:
+                    self.settings[setting_key] = self.ui[ui_key].value
+
+            try:
+                self.data_manager.speichere_settings(self.settings)
+            except (OSError, ValueError, TypeError):
+                pass
+
+        except (OSError, ValueError, TypeError):
+            pass
+
+    # ---------------------------------------------------------
+    # Logs
+    # ---------------------------------------------------------
+
     def zeige_logs(self, _e):
-        """Zeigt Flet Console Logs für Debugging."""
-        import os
         log_file = os.getenv("FLET_APP_CONSOLE")
         if log_file:
             try:
                 with open(log_file, "r") as f:
                     logs = f.read()
-                # Zeige letzte 5000 Zeichen
                 if len(logs) > 5000:
                     logs = "...\n" + logs[-5000:]
                 self.dialog("Debug Logs", logs)
@@ -939,63 +969,12 @@ class AnlagenApp:
         else:
             self.dialog("Keine Logs", "FLET_APP_CONSOLE nicht verfügbar")
 
-    def importiere_von_downloads(self, _e):
-        """Importiert Daten und Settings aus Documents/Import."""
-        try:
-            import shutil
-            
-            import_path = self.data_path / "Import"
-            
-            if not import_path.exists():
-                return self.dialog("Keine Dateien", 
-                                  f"Import-Ordner nicht gefunden:\n{import_path}")
-            
-            # Suche JSON-Dateien
-            json_files = list(import_path.glob("*.json"))
-            if not json_files:
-                return self.dialog("Keine Dateien", 
-                                  f"Keine JSON-Dateien im Import-Ordner:\n{import_path}")
-            
-            dateien = []
-            
-            # Importiere Dateien
-            for json_file in json_files:
-                filename = json_file.name.lower()
-                
-                if "daten" in filename or "anlagen" in filename:
-                    # Anlagen-Daten
-                    target = self.data_path / "anlagen_daten.json"
-                    shutil.copy(json_file, target)
-                    dateien.append(json_file.name)
-                    self.show_file_snackbar("Importiert", json_file.name)
-                    
-                elif "einstellung" in filename or "settings" in filename:
-                    # Settings
-                    target = self.data_path / "app_settings.json"
-                    shutil.copy(json_file, target)
-                    dateien.append(json_file.name)
-                    self.show_file_snackbar("Importiert", json_file.name)
-                
-                # Lösche importierte Datei aus Import-Ordner
-                json_file.unlink()
-            
-            if dateien:
-                # Lade neue Daten
-                self.settings = self.data_manager.lade_settings()
-                self.lade_daten()
-                self.aktualisiere_aktive_daten()
-                self.dialog("Import erfolgreich", 
-                           f"Importierte Dateien:\n" + "\n".join(dateien))
-            else:
-                self.dialog("Keine Dateien", "Keine passenden JSON-Dateien gefunden.")
-        
-        except Exception as e:
-            self.dialog("Import-Fehler", str(e))
-
+    # ---------------------------------------------------------
+    # main()
+    # ---------------------------------------------------------
 
 def main(page: ft.Page):
     AnlagenApp(page)
-
 
 if __name__ == "__main__":
     ft.app(target=main)

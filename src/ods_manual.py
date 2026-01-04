@@ -7,7 +7,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-
+WATERMARK_TEXT = "Verteiler beschriften (C) 2026 vohegg@gmail.com"
+WATERMARK_COLOR = "#666666"  # Dunkelgrau zum Testen
 def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
     
@@ -26,6 +27,8 @@ def create_ods_manual(data, settings, output_path, footer_data=None):
         'table': 'urn:oasis:names:tc:opendocument:xmlns:table:1.0',
         'fo': 'urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0',
         'svg': 'urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0',
+        'draw': 'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0',
+        'loext': 'urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0',
         'manifest': 'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0',
     }
     
@@ -321,6 +324,58 @@ def create_content_xml(data, settings, NS, footer_data=None):
     ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}paragraph-properties',
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
     
+    # Watermark Text Style (5pt, grau)
+    watermark_style = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                                   attrib={
+                                       f'{{{NS["style"]}}}name': 'P1',
+                                       f'{{{NS["style"]}}}family': 'paragraph'
+                                   })
+    ET.SubElement(watermark_style, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '5pt',
+                     f'{{{NS["fo"]}}}color': WATERMARK_COLOR,
+                 })
+    
+    # Text Span Style für Watermark
+    span_style = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                              attrib={
+                                  f'{{{NS["style"]}}}name': 'T1',
+                                  f'{{{NS["style"]}}}family': 'text'
+                              })
+    ET.SubElement(span_style, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '5pt',
+                     f'{{{NS["fo"]}}}color': WATERMARK_COLOR,
+                     f'{{{NS["loext"]}}}opacity': '100%',
+                 })
+    
+    # Watermark Graphic Style (für draw:frame)
+    graphic_style = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                                 attrib={
+                                     f'{{{NS["style"]}}}name': 'gr1',
+                                     f'{{{NS["style"]}}}family': 'graphic',
+                                     f'{{{NS["style"]}}}parent-style-name': 'Default'
+                                 })
+    ET.SubElement(graphic_style, f'{{{NS["style"]}}}graphic-properties',
+                 attrib={
+                     f'{{{NS["draw"]}}}stroke': 'none',
+                     f'{{{NS["draw"]}}}fill': 'none',
+                     f'{{{NS["draw"]}}}textarea-horizontal-align': 'left',
+                     f'{{{NS["draw"]}}}textarea-vertical-align': 'bottom',
+                     f'{{{NS["fo"]}}}min-height': '0.4cm',
+                     f'{{{NS["loext"]}}}decorative': 'false',
+                 })
+    ET.SubElement(graphic_style, f'{{{NS["style"]}}}paragraph-properties',
+                 attrib={
+                     f'{{{NS["style"]}}}writing-mode': 'lr-tb'
+                 })
+    ET.SubElement(graphic_style, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '5pt',
+                     f'{{{NS["fo"]}}}color': WATERMARK_COLOR,
+                     f'{{{NS["loext"]}}}opacity': '100%',
+                 })
+    
     # Body
     body = ET.SubElement(root, f'{{{NS["office"]}}}body')
     spreadsheet = ET.SubElement(body, f'{{{NS["office"]}}}spreadsheet')
@@ -340,12 +395,19 @@ def create_content_xml(data, settings, NS, footer_data=None):
     
     # Rows mit Daten
     rows = data.get('rows', [])
+    absolute_row_counter = 1  # Startet bei 1
+    
     for row_data in rows:
         row_style = 'ro1' if row_data.get('is_header', False) else 'ro2'
         row = ET.SubElement(table, f'{{{NS["table"]}}}table-row',
                            attrib={f'{{{NS["table"]}}}style-name': row_style})
         
-        for cell_data in row_data.get('cells', []):
+        # Watermark in Zeile 2, 6, 10, 14... (row_counter ist 1, 5, 9...)
+        add_watermark = (absolute_row_counter % 4 == 1)
+        
+        absolute_row_counter += 1  # NACH der Prüfung erhöhen
+        
+        for idx, cell_data in enumerate(row_data.get('cells', [])):
             cell_attribs = {f'{{{NS["table"]}}}style-name': cell_data.get('style', 'ce3')}
             
             # Merged cells
@@ -353,6 +415,29 @@ def create_content_xml(data, settings, NS, footer_data=None):
                 cell_attribs[f'{{{NS["table"]}}}number-columns-spanned'] = str(cell_data['colspan'])
             
             cell = ET.SubElement(row, f'{{{NS["table"]}}}table-cell', attrib=cell_attribs)
+            
+            # Watermark in erste Zelle jeder ungeraden Zeile
+            if add_watermark and idx == 0:
+                row_height = settings.get('inhalt_row_hoehe', 0.5)
+                watermark_y = row_height - 0.05  # Relativ zur Zelle!
+                
+                frame = ET.SubElement(cell, f'{{{NS["draw"]}}}frame',
+                                     attrib={
+                                         f'{{{NS["draw"]}}}z-index': '0',
+                                         f'{{{NS["draw"]}}}name': f'Watermark_{absolute_row_counter}',
+                                         f'{{{NS["draw"]}}}style-name': 'gr1',
+                                         f'{{{NS["draw"]}}}text-style-name': 'P1',
+                                         f'{{{NS["table"]}}}table-background': 'true',
+                                         f'{{{NS["svg"]}}}x': '0.001cm',
+                                         f'{{{NS["svg"]}}}y': f'{watermark_y:.2f}cm',
+                                         f'{{{NS["svg"]}}}width': '3cm',
+                                         f'{{{NS["svg"]}}}height': '0.4cm',
+                                     })
+                textbox = ET.SubElement(frame, f'{{{NS["draw"]}}}text-box')
+                p = ET.SubElement(textbox, f'{{{NS["text"]}}}p')
+                span = ET.SubElement(p, f'{{{NS["text"]}}}span',
+                                    attrib={f'{{{NS["text"]}}}style-name': 'T1'})
+                span.text = WATERMARK_TEXT
             
             # Text
             if cell_data.get('text'):
