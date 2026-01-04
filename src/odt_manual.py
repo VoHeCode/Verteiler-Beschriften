@@ -1,18 +1,139 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Manuelle ODT-Erstellung für Android (ohne odfpy)."""
+"""Manuelle ODT-Erstellung mit ElementTree (ohne odfpy)."""
 
 import zipfile
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 
 def create_odt_manual(kunde_data, output_path):
-    """Erstellt ODT-Datei manuell mit zipfile und XML-Strings.
+    """Erstellt ODT-Datei manuell mit zipfile und ElementTree.
     
     Args:
         kunde_data: Dictionary mit Kundendaten und Anlagen
         output_path: Ausgabepfad für ODT-Datei
     """
+    # Namespace Definitionen
+    NS = {
+        'office': 'urn:oasis:names:tc:opendocument:xmlns:office:1.0',
+        'style': 'urn:oasis:names:tc:opendocument:xmlns:style:1.0',
+        'text': 'urn:oasis:names:tc:opendocument:xmlns:text:1.0',
+        'fo': 'urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0',
+        'manifest': 'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0',
+    }
+    
+    # Registriere Namespaces
+    for prefix, uri in NS.items():
+        ET.register_namespace(prefix, uri)
+    
+    # Erstelle ZIP
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 1. mimetype (MUSS erste Datei sein, unkomprimiert)
+        zf.writestr('mimetype', 
+                    'application/vnd.oasis.opendocument.text',
+                    compress_type=zipfile.ZIP_STORED)
+        
+        # 2. manifest.xml
+        manifest = create_manifest_xml(NS)
+        zf.writestr('META-INF/manifest.xml', 
+                    ET.tostring(manifest, encoding='utf-8', xml_declaration=True))
+        
+        # 3. content.xml
+        content = create_content_xml(kunde_data, NS)
+        zf.writestr('content.xml',
+                    ET.tostring(content, encoding='utf-8', xml_declaration=True))
+        
+        # 4. meta.xml
+        meta = create_meta_xml(NS)
+        zf.writestr('meta.xml',
+                    ET.tostring(meta, encoding='utf-8', xml_declaration=True))
+
+
+def create_manifest_xml(NS):
+    """Erstellt META-INF/manifest.xml."""
+    manifest = ET.Element(f'{{{NS["manifest"]}}}manifest',
+                         attrib={f'{{{NS["manifest"]}}}version': '1.2'})
+    
+    files = [
+        ('/', 'application/vnd.oasis.opendocument.text'),
+        ('content.xml', 'text/xml'),
+        ('meta.xml', 'text/xml'),
+    ]
+    
+    for path, media_type in files:
+        ET.SubElement(manifest, f'{{{NS["manifest"]}}}file-entry',
+                     attrib={
+                         f'{{{NS["manifest"]}}}full-path': path,
+                         f'{{{NS["manifest"]}}}media-type': media_type
+                     })
+    
+    return manifest
+
+
+def create_meta_xml(NS):
+    """Erstellt meta.xml mit Metadaten."""
+    root = ET.Element(f'{{{NS["office"]}}}document-meta',
+                     attrib={f'{{{NS["office"]}}}version': '1.2'})
+    
+    meta = ET.SubElement(root, f'{{{NS["office"]}}}meta')
+    
+    # Generator
+    gen = ET.SubElement(meta, 'meta:generator')
+    gen.text = 'Verteiler-Beschriften/2.3.4'
+    
+    # Datum
+    now = datetime.now().isoformat()
+    creation = ET.SubElement(meta, 'meta:creation-date')
+    creation.text = now
+    
+    return root
+
+
+def create_content_xml(kunde_data, NS):
+    """Erstellt content.xml mit Kundendaten."""
+    root = ET.Element(f'{{{NS["office"]}}}document-content',
+                     attrib={f'{{{NS["office"]}}}version': '1.2'})
+    
+    # Automatische Styles
+    auto_styles = ET.SubElement(root, f'{{{NS["office"]}}}automatic-styles')
+    
+    # Style H1 (15pt bold)
+    h1_style = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                            attrib={
+                                f'{{{NS["style"]}}}name': 'H1',
+                                f'{{{NS["style"]}}}family': 'paragraph'
+                            })
+    ET.SubElement(h1_style, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '15pt',
+                     f'{{{NS["fo"]}}}font-weight': 'bold'
+                 })
+    
+    # Style H2 (13pt bold)
+    h2_style = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                            attrib={
+                                f'{{{NS["style"]}}}name': 'H2',
+                                f'{{{NS["style"]}}}family': 'paragraph'
+                            })
+    ET.SubElement(h2_style, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '13pt',
+                     f'{{{NS["fo"]}}}font-weight': 'bold'
+                 })
+    
+    # Style Bold
+    bold_style = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                              attrib={
+                                  f'{{{NS["style"]}}}name': 'Bold',
+                                  f'{{{NS["style"]}}}family': 'text'
+                              })
+    ET.SubElement(bold_style, f'{{{NS["style"]}}}text-properties',
+                 attrib={f'{{{NS["fo"]}}}font-weight': 'bold'})
+    
+    # Body
+    body = ET.SubElement(root, f'{{{NS["office"]}}}body')
+    text_body = ET.SubElement(body, f'{{{NS["office"]}}}text')
     
     # Extrahiere Daten
     kundenname = kunde_data.get('kundenname', 'Unbekannt')
@@ -26,162 +147,120 @@ def create_odt_manual(kunde_data, output_path):
     email = kunde_data.get('email', '')
     anlagen = kunde_data.get('anlagen', [])
     
-    # Content-XML aufbauen
-    content_parts = []
+    # Kunde Header
+    h1 = ET.SubElement(text_body, f'{{{NS["text"]}}}h',
+                      attrib={
+                          f'{{{NS["text"]}}}style-name': 'H1',
+                          f'{{{NS["text"]}}}outline-level': '1'
+                      })
+    h1.text = f'Kunde: {kundenname}'
     
-    # Header
-    content_parts.append("""<?xml version="1.0" encoding="UTF-8"?>
-<office:document-content
-    xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
-    xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
-    xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
-    office:version="1.2">
-  <office:automatic-styles>
-    <style:style style:name="H1" style:family="paragraph">
-      <style:text-properties fo:font-size="15pt" fo:font-weight="bold"/>
-    </style:style>
-    <style:style style:name="H2" style:family="paragraph">
-      <style:text-properties fo:font-size="13pt" fo:font-weight="bold"/>
-    </style:style>
-    <style:style style:name="Bold" style:family="text">
-      <style:text-properties fo:font-weight="bold"/>
-    </style:style>
-  </office:automatic-styles>
-  <office:body>
-    <office:text>
-""")
-    
-    # Titel
-    content_parts.append(f'      <text:h text:style-name="H1">Kunde: {escape_xml(kundenname)}</text:h>\n')
-    content_parts.append('      <text:p></text:p>\n')
+    # Leerzeile
+    ET.SubElement(text_body, f'{{{NS["text"]}}}p')
     
     # Kundendaten
-    if projekt:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">Projekt:</text:span> {escape_xml(projekt)}</text:p>\n')
-    if datum:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">Datum:</text:span> {escape_xml(datum)}</text:p>\n')
-    if adresse:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">Adresse:</text:span> {escape_xml(adresse)}</text:p>\n')
-    if plz or ort:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">PLZ/Ort:</text:span> {escape_xml(plz)} {escape_xml(ort)}</text:p>\n')
-    if ansprechpartner:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">Ansprechpartner:</text:span> {escape_xml(ansprechpartner)}</text:p>\n')
-    if telefonnummer:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">Telefon:</text:span> {escape_xml(telefonnummer)}</text:p>\n')
-    if email:
-        content_parts.append(f'      <text:p><text:span text:style-name="Bold">E-Mail:</text:span> {escape_xml(email)}</text:p>\n')
+    add_labeled_paragraph(text_body, NS, 'Projekt', projekt)
+    add_labeled_paragraph(text_body, NS, 'Datum', datum)
+    add_labeled_paragraph(text_body, NS, 'Adresse', adresse)
+    add_labeled_paragraph(text_body, NS, 'PLZ', plz)
+    add_labeled_paragraph(text_body, NS, 'Ort', ort)
+    add_labeled_paragraph(text_body, NS, 'Ansprechpartner', ansprechpartner)
+    add_labeled_paragraph(text_body, NS, 'Telefonnummer', telefonnummer)
+    add_labeled_paragraph(text_body, NS, 'E-Mail', email)
     
-    content_parts.append('      <text:p></text:p>\n')
+    # Leerzeile
+    ET.SubElement(text_body, f'{{{NS["text"]}}}p')
     
     # Anlagen
-    content_parts.append('      <text:h text:style-name="H1">Anlagen</text:h>\n')
-    content_parts.append('      <text:p></text:p>\n')
+    if anlagen:
+        h2 = ET.SubElement(text_body, f'{{{NS["text"]}}}h',
+                          attrib={
+                              f'{{{NS["text"]}}}style-name': 'H2',
+                              f'{{{NS["text"]}}}outline-level': '2'
+                          })
+        h2.text = 'Anlagen:'
+        
+        ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+        
+        for anlage in anlagen:
+            # Anlage Header
+            p_anlage = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+            span_bold = ET.SubElement(p_anlage, f'{{{NS["text"]}}}span',
+                                     attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
+            span_bold.text = f"Anlage {anlage.get('id', '?')}: {anlage.get('beschreibung', '')}"
+            
+            # Anlage Details
+            add_labeled_paragraph(text_body, NS, '  Name', anlage.get('name', ''))
+            add_labeled_paragraph(text_body, NS, '  Adresse', anlage.get('adresse', ''))
+            add_labeled_paragraph(text_body, NS, '  PLZ/Ort', anlage.get('plz_ort', ''))
+            
+            # Lokalisierung
+            if anlage.get('gebaeude') or anlage.get('geschoss') or anlage.get('raum'):
+                ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                p_lok = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                span_lok = ET.SubElement(p_lok, f'{{{NS["text"]}}}span',
+                                        attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
+                span_lok.text = '  Lokalisierung:'
+                add_labeled_paragraph(text_body, NS, '    Gebäude', anlage.get('gebaeude', ''))
+                add_labeled_paragraph(text_body, NS, '    Geschoss', anlage.get('geschoss', ''))
+                add_labeled_paragraph(text_body, NS, '    Raum', anlage.get('raum', ''))
+                add_labeled_paragraph(text_body, NS, '    Funktion', anlage.get('funktion', ''))
+            
+            # Zähler
+            if anlage.get('zaehlernummer') or anlage.get('zaehlerstand'):
+                ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                p_zaehler = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                span_zaehler = ET.SubElement(p_zaehler, f'{{{NS["text"]}}}span',
+                                            attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
+                span_zaehler.text = '  Zähler:'
+                add_labeled_paragraph(text_body, NS, '    Nummer', anlage.get('zaehlernummer', ''))
+                add_labeled_paragraph(text_body, NS, '    Stand', anlage.get('zaehlerstand', ''))
+            
+            # Export-Konfiguration
+            ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+            p_export = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+            span_export = ET.SubElement(p_export, f'{{{NS["text"]}}}span',
+                                       attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
+            span_export.text = '  Export-Konfiguration:'
+            add_labeled_paragraph(text_body, NS, '    Code', anlage.get('code', ''))
+            add_labeled_paragraph(text_body, NS, '    Felder', str(anlage.get('felder', 3)))
+            add_labeled_paragraph(text_body, NS, '    Reihen', str(anlage.get('reihen', 7)))
+            
+            # Beschriftungen
+            if anlage.get('text_inhalt'):
+                ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                p_beschr = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                span_beschr = ET.SubElement(p_beschr, f'{{{NS["text"]}}}span',
+                                           attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
+                span_beschr.text = '  Beschriftungen:'
+                
+                # Beschriftungen als vorformattierter Text
+                beschr_lines = anlage.get('text_inhalt', '').split('\n')
+                for line in beschr_lines:
+                    p_line = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                    p_line.text = f'    {line}'
+            
+            # Bemerkung
+            if anlage.get('bemerkung'):
+                ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+                add_labeled_paragraph(text_body, NS, '  Bemerkung', anlage.get('bemerkung', ''))
+            
+            # Leerzeile zwischen Anlagen
+            ET.SubElement(text_body, f'{{{NS["text"]}}}p')
+            ET.SubElement(text_body, f'{{{NS["text"]}}}p')
     
-    for idx, anlage in enumerate(anlagen, 1):
-        beschreibung = anlage.get('beschreibung', f'Anlage {idx}')
-        content_parts.append(f'      <text:h text:style-name="H2">{idx}. {escape_xml(beschreibung)}</text:h>\n')
-        
-        # Anlagendetails
-        code = anlage.get('code', '')
-        bemerkung = anlage.get('bemerkung', '')
-        
-        # Lokalisierung
-        name = anlage.get('name', '')
-        anlage_adresse = anlage.get('adresse', '')
-        plz_ort = anlage.get('plz_ort', '')
-        raum = anlage.get('raum', '')
-        gebaeude = anlage.get('gebaeude', '')
-        geschoss = anlage.get('geschoss', '')
-        funktion = anlage.get('funktion', '')
-        
-        if code:
-            content_parts.append(f'      <text:p><text:span text:style-name="Bold">Code:</text:span> {escape_xml(code)}</text:p>\n')
-        if bemerkung:
-            content_parts.append(f'      <text:p><text:span text:style-name="Bold">Bemerkung:</text:span> {escape_xml(bemerkung)}</text:p>\n')
-        
-        if any([name, anlage_adresse, plz_ort, raum, gebaeude, geschoss, funktion]):
-            content_parts.append('      <text:p><text:span text:style-name="Bold">Lokalisierung:</text:span></text:p>\n')
-            if name:
-                content_parts.append(f'      <text:p>  Name: {escape_xml(name)}</text:p>\n')
-            if anlage_adresse:
-                content_parts.append(f'      <text:p>  Adresse: {escape_xml(anlage_adresse)}</text:p>\n')
-            if plz_ort:
-                content_parts.append(f'      <text:p>  PLZ/Ort: {escape_xml(plz_ort)}</text:p>\n')
-            if gebaeude:
-                content_parts.append(f'      <text:p>  Gebäude: {escape_xml(gebaeude)}</text:p>\n')
-            if geschoss:
-                content_parts.append(f'      <text:p>  Geschoss: {escape_xml(geschoss)}</text:p>\n')
-            if raum:
-                content_parts.append(f'      <text:p>  Raum: {escape_xml(raum)}</text:p>\n')
-            if funktion:
-                content_parts.append(f'      <text:p>  Funktion: {escape_xml(funktion)}</text:p>\n')
-        
-        # Zähler
-        zaehlernummer = anlage.get('zaehlernummer', '')
-        zaehlerstand = anlage.get('zaehlerstand', '')
-        if zaehlernummer or zaehlerstand:
-            content_parts.append('      <text:p><text:span text:style-name="Bold">Zähler:</text:span></text:p>\n')
-            if zaehlernummer:
-                content_parts.append(f'      <text:p>  Zählernummer: {escape_xml(zaehlernummer)}</text:p>\n')
-            if zaehlerstand:
-                content_parts.append(f'      <text:p>  Zählerstand: {escape_xml(zaehlerstand)}</text:p>\n')
-        
-        # Export-Konfiguration
-        felder = anlage.get('felder', '')
-        reihen = anlage.get('reihen', '')
-        if felder or reihen:
-            content_parts.append('      <text:p><text:span text:style-name="Bold">Export-Konfiguration:</text:span></text:p>\n')
-            if felder:
-                content_parts.append(f'      <text:p>  Felder: {escape_xml(str(felder))}</text:p>\n')
-            if reihen:
-                content_parts.append(f'      <text:p>  Reihen: {escape_xml(str(reihen))}</text:p>\n')
-        
-        # Beschriftungen
-        text_inhalt = anlage.get('text_inhalt', '')
-        if text_inhalt:
-            content_parts.append('      <text:p><text:span text:style-name="Bold">Beschriftungen:</text:span></text:p>\n')
-            for line in text_inhalt.split('\n'):
-                if line.strip():
-                    content_parts.append(f'      <text:p>  {escape_xml(line)}</text:p>\n')
-        
-        content_parts.append('      <text:p></text:p>\n')
-    
-    # Footer
-    content_parts.append("""    </office:text>
-  </office:body>
-</office:document-content>
-""")
-    
-    content_xml = ''.join(content_parts)
-    
-    # Manifest
-    manifest_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<manifest:manifest
-    xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">
-  <manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.text" manifest:full-path="/"/>
-  <manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/>
-</manifest:manifest>
-"""
-    
-    # ODT erstellen
-    mimetype = "application/vnd.oasis.opendocument.text"
-    
-    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_STORED) as odt:
-        # mimetype MUSS unkomprimiert und als erstes rein
-        odt.writestr("mimetype", mimetype, compress_type=zipfile.ZIP_STORED)
-        odt.writestr("content.xml", content_xml)
-        odt.writestr("META-INF/manifest.xml", manifest_xml)
+    return root
 
 
-def escape_xml(text):
-    """Escaped XML-Sonderzeichen."""
-    if not text:
-        return ''
-    text = str(text)
-    text = text.replace('&', '&amp;')
-    text = text.replace('<', '&lt;')
-    text = text.replace('>', '&gt;')
-    text = text.replace('"', '&quot;')
-    text = text.replace("'", '&apos;')
-    return text
+def add_labeled_paragraph(parent, NS, label, value):
+    """Fügt Paragraph mit Label (fett) + Wert hinzu."""
+    if not value:
+        return
+    
+    p = ET.SubElement(parent, f'{{{NS["text"]}}}p')
+    
+    # Label (fett)
+    span_bold = ET.SubElement(p, f'{{{NS["text"]}}}span',
+                             attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
+    span_bold.text = f'{label}: '
+    span_bold.tail = str(value)

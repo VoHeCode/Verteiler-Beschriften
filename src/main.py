@@ -366,6 +366,13 @@ class AnlagenApp:
             container.controls.append(zeile2)
             container.controls.append(ft.Divider(height=1))
 
+        # Auto-Select wenn nur 1 Anlage
+        if len(self.anlagen_daten) == 1:
+            anlage = self.anlagen_daten[0]
+            self.ausgewaehlte_anlage_id = anlage["id"]
+            self.aktuelle_anlage = anlage
+            self.ui["anlagen_radiogroup"].value = str(anlage["id"])
+
         self.page.update()
 
     def on_anlage_selected(self, e):
@@ -519,6 +526,11 @@ class AnlagenApp:
 
         self.next_anlage_id += 1
         self.anlagen_daten.append(neue)
+        
+        # Neue Anlage automatisch auswählen
+        self.ausgewaehlte_anlage_id = neue["id"]
+        self.aktuelle_anlage = neue
+        
         self.daten_dirty = True
         self.speichere_daten()
         
@@ -751,16 +763,12 @@ class AnlagenApp:
             if self.aktiver_kunde_key and self.aktiver_kunde_key in self.alle_kunden:
                 projekt = self.alle_kunden[self.aktiver_kunde_key].get('projekt', '')
             
-            # Android nutzt manuelle ODS-Erstellung
-            use_manual = (self.page.platform == "android")
-            
             pfad = exportiere_anlage_ods(
                 self.aktuelle_anlage, 
                 self.settings, 
                 self.get_export_base_path(),  # OHNE Kundenname - wird in odf_exporter hinzugefügt
                 self.aktiver_kunde_key,
-                projekt,
-                use_manual=use_manual
+                projekt
             )
             self.letzte_export_datei = pfad
             self.show_file_snackbar("Exportiert", str(pfad))
@@ -786,14 +794,10 @@ class AnlagenApp:
         kunde = self.alle_kunden[self.aktiver_kunde_key]
 
         try:
-            # Android nutzt manuelle ODT-Erstellung
-            use_manual = (self.page.platform == "android")
-            
             pfad = exportiere_kunde_odt(
                 kunde, 
                 self.aktiver_kunde_key, 
-                self.get_export_base_path(),  # OHNE Kundenname - wird in odf_exporter hinzugefügt
-                use_manual=use_manual
+                self.get_export_base_path()  # OHNE Kundenname - wird in odf_exporter hinzugefügt
             )
             self.show_file_snackbar("Exportiert", str(pfad))
             self.dialog('Erfolg', f'ODT exportiert:\n\n{pfad}')
@@ -868,8 +872,27 @@ class AnlagenApp:
             self.dialog("Export-Fehler", str(e))
 
     def exportiere_alle_kunden(self, _e):
-        """Zeigt Snackbar - später mehrseitige ODT-Datei."""
-        self.show_file_snackbar("Info", "Alle Kunden als Textdatei")
+        """Exportiert alle Kunden als einzelne ODT-Dateien."""
+        if not self.alle_kunden:
+            return self.dialog("Fehler", "Keine Kunden vorhanden.")
+        
+        try:
+            anzahl = 0
+            for kundenname, kunde in self.alle_kunden.items():
+                pfad = exportiere_kunde_odt(
+                    kunde, 
+                    kundenname, 
+                    self.get_export_base_path()
+                )
+                anzahl += 1
+            
+            self.show_file_snackbar("Exportiert", f"{anzahl} Kunden als ODT")
+            self.dialog('Erfolg', f'{anzahl} Kunden als ODT exportiert:\n\n{self.get_export_base_path() / "Export"}')
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            self.dialog('Export-Fehler', f'Fehler beim Export:\n{str(e)}\n\n{error_details[:300]}')
     
     def exportiere_alle_daten_json(self, _e):
         """Exportiert alle Kundendaten als JSON in Export-Ordner."""

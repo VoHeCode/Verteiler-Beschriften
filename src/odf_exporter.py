@@ -4,7 +4,7 @@
 
 Enthält die komplette Logik für den Export von Anlagen in ODS-Format
 (OpenDocument Spreadsheet) und Kunden in ODT-Format (OpenDocument Text).
-Nutzt odfpy für Desktop und manuelle ZIP+XML für Android.
+Nutzt manuelle ZIP+XML Erstellung für alle Plattformen.
 """
 
 import os
@@ -12,30 +12,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-# Desktop: odfpy (optional)
-try:
-    from odf.opendocument import OpenDocumentSpreadsheet, OpenDocumentText
-    from odf.table import Table, TableRow, TableCell, TableColumn, CoveredTableCell
-    from odf.text import P, H
-    from odf.style import (
-        Style,
-        TableColumnProperties,
-        TableRowProperties,
-        TableCellProperties,
-        TextProperties,
-        ParagraphProperties,
-        PageLayout,
-        PageLayoutProperties,
-        MasterPage,
-        TabStop,
-        TabStops
-    )
-    from odf import teletype
-    HAS_ODFPY = True
-except ImportError:
-    HAS_ODFPY = False
-
-# Android: Manuelle ODS-Erstellung
+# Manuelle ODS/ODT-Erstellung
 from ods_manual import create_ods_manual
 from odt_manual import create_odt_manual
 
@@ -338,134 +315,6 @@ def erstelle_ods_styles(doc, settings):
     return spalten_style, beschr_row_style, inhalt_row_style
 
 
-def exportiere_anlage_ods_odfpy(anlage, settings, export_base_path, kundenname):
-    """Exportiert eine Anlage als ODS-Datei mit odfpy (Desktop).
-
-    Args:
-        anlage (dict): Anlagen-Dictionary mit allen Daten
-        settings (dict): Settings-Dictionary
-        export_base_path (Path): Basis-Pfad für Export-Verzeichnis
-        kundenname (str): Name des Kunden für Unterordner
-
-    Returns:
-        Path: Pfad zur exportierten Datei
-
-    Raises:
-        ValueError: Wenn Anlage ungültig ist oder keine Einträge vorhanden
-    """
-    if not HAS_ODFPY:
-        raise RuntimeError('odfpy ist nicht installiert')
-        
-    # Validierung
-    if not anlage:
-        raise ValueError('Keine Anlage zum Exportieren vorhanden.')
-
-    felder = anlage.get('felder', 3)
-    reihen = anlage.get('reihen', 7)
-    text_inhalt = anlage.get('text_inhalt', '')
-
-    is_valid, gueltige_eintraege, fehler_anzahl, _, _ = validiere_eintraege(
-        text_inhalt, felder, reihen
-    )
-
-    if not is_valid:
-        raise ValueError(
-            'Die Anlage enthält fehlerhafte Beschriftungen. '
-            'Bitte beheben Sie die Fehler vor dem Export.'
-        )
-
-    if not gueltige_eintraege:
-        raise ValueError('Keine gültigen Beschriftungen zum Exportieren gefunden!')
-
-    # Sortiere nach erster Spalte
-    gueltige_eintraege.sort(key=lambda x: x['spalten_liste'][0])
-
-    # Erstelle ODS-Dokument
-    doc = OpenDocumentSpreadsheet()
-
-    # Styles erstellen
-    spalten_style, beschr_row_style, inhalt_row_style = erstelle_ods_styles(
-        doc, settings
-    )
-
-    # ============ TABELLEN-LOGIK ============
-    table = Table(name=anlage['beschreibung'], stylename="MainTable")
-
-    # Spalten definieren
-    for i in range(SPALTEN_PRO_EINHEIT):
-        table.addElement(TableColumn(stylename=spalten_style))
-
-    # Spalten-Map erstellen
-    spalten_map = {}
-    for beschr in gueltige_eintraege:
-        spalten_map[beschr['spalten_liste'][0]] = {
-            'beschreibung': beschr['beschreibung'],
-            'anzahl': len(beschr['spalten_liste'])
-        }
-
-    globale_spalten_start = 1
-
-    # Felder und Reihen durchlaufen
-    for feld in range(1, felder + 1):
-        for reihe in range(1, reihen + 1):
-            # Beschriftungszeile (Spaltennummern)
-            beschr_row = TableRow(stylename=beschr_row_style)
-            temp_spalte_nr = globale_spalten_start
-
-            for i in range(SPALTEN_PRO_EINHEIT):
-                cell = TableCell(stylename="BeschriftungZelle")
-                cell.addElement(P(text=str(temp_spalte_nr + i)))
-                beschr_row.addElement(cell)
-
-            table.addElement(beschr_row)
-
-            # Inhaltszeile (Beschriftungen)
-            inhalt_row = TableRow(stylename=inhalt_row_style)
-            lokale_spalten_zaehler = 0
-
-            while lokale_spalten_zaehler < SPALTEN_PRO_EINHEIT:
-                globale_spalten_nr = globale_spalten_start + lokale_spalten_zaehler
-
-                if globale_spalten_nr in spalten_map:
-                    eintrag = spalten_map[globale_spalten_nr]
-                    anzahl = eintrag['anzahl']
-                    anzahl_in_reihe = min(
-                        anzahl,
-                        SPALTEN_PRO_EINHEIT - lokale_spalten_zaehler
-                    )
-
-                    cell = TableCell(
-                        stylename="GemergteZelle",
-                        numbercolumnsspanned=anzahl_in_reihe
-                    )
-                    cell.addElement(P(text=eintrag['beschreibung']))
-                    inhalt_row.addElement(cell)
-
-                    for _ in range(1, anzahl_in_reihe):
-                        inhalt_row.addElement(CoveredTableCell())
-
-                    lokale_spalten_zaehler += anzahl_in_reihe
-                else:
-                    cell = TableCell(stylename="InhaltZelle")
-                    inhalt_row.addElement(cell)
-                    lokale_spalten_zaehler += 1
-
-            table.addElement(inhalt_row)
-            globale_spalten_start += SPALTEN_PRO_EINHEIT
-
-    doc.spreadsheet.addElement(table)
-
-    # Speichern
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    dateiname = f'{anlage["beschreibung"].replace(" ", "_")}_{timestamp}.ods'
-    export_pfad = Path(export_base_path) / kundenname / dateiname
-    os.makedirs(export_pfad.parent, exist_ok=True)
-
-    doc.save(str(export_pfad))
-
-    return export_pfad
-
-
 def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname, projekt=''):
     """Exportiert eine Anlage als ODS-Datei manuell (Android).
 
@@ -511,8 +360,8 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname,
 
     # Speichern
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    beschreibung = anlage.get("beschreibung", "Anlage").replace(" ", "_")
-    dateiname = f'Kunde_{kundenname.replace(" ", "_")}_{beschreibung}_{timestamp}.ods'
+    anlage_id = anlage.get("id", "0")
+    dateiname = f'Kunde_{kundenname.replace(" ", "_")}_Anlage_{anlage_id}_{timestamp}.ods'
     export_pfad = Path(export_base_path) / kundenname / dateiname
     os.makedirs(export_pfad.parent, exist_ok=True)
 
@@ -531,8 +380,8 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname,
     return export_pfad
 
 
-def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, projekt='', use_manual=False):
-    """Exportiert eine Anlage als ODS-Datei (Wrapper-Funktion).
+def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, projekt=''):
+    """Exportiert eine Anlage als ODS-Datei.
 
     Args:
         anlage (dict): Anlagen-Dictionary mit allen Daten
@@ -540,7 +389,6 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, projek
         export_base_path (Path): Basis-Pfad für Export-Verzeichnis
         kundenname (str): Name des Kunden für Unterordner
         projekt (str): Projekt-Name für Fußzeile
-        use_manual (bool): True für manuelle Erstellung (Android), False für odfpy (Desktop)
 
     Returns:
         Path: Pfad zur exportierten Datei
@@ -548,178 +396,7 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, projek
     Raises:
         ValueError: Wenn Anlage ungültig ist oder keine Einträge vorhanden
     """
-    # TEMPORÄR: Nutze IMMER manuelle Erstellung für Tests
     return exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname, projekt)
-
-
-def exportiere_kunde_odt_odfpy(kunde, kundenname, export_base_path):
-    """Exportiert alle Daten eines Kunden als ODT-Datei mit odfpy (Desktop).
-
-    Args:
-        kunde (dict): Kunden-Dictionary mit allen Daten
-        kundenname (str): Name des Kunden
-        export_base_path (Path): Basis-Pfad für Export-Verzeichnis
-
-    Returns:
-        Path: Pfad zur exportierten Datei
-
-    Raises:
-        ValueError: Wenn Kunde ungültig ist
-    """
-    if not HAS_ODFPY:
-        raise RuntimeError('odfpy ist nicht installiert')
-        
-    if not kunde:
-        raise ValueError('Kein Kunde zum Exportieren vorhanden.')
-
-    doc = OpenDocumentText()
-
-    # Styles
-    h1_style = Style(name="Heading1", family="paragraph")
-    h1_style.addElement(TextProperties(fontsize="15pt", fontweight="bold"))
-    h1_style.addElement(ParagraphProperties(margintop="0.5cm", marginbottom="0.3cm"))
-    doc.styles.addElement(h1_style)
-
-    h2_style = Style(name="Heading2", family="paragraph")
-    h2_style.addElement(TextProperties(fontsize="13pt", fontweight="bold"))
-    h2_style.addElement(ParagraphProperties(margintop="0.4cm", marginbottom="0.2cm"))
-    doc.styles.addElement(h2_style)
-
-    normal_style = Style(name="NormalText", family="paragraph")
-    normal_style.addElement(TextProperties(fontsize="10pt"))
-    doc.styles.addElement(normal_style)
-
-    indent_style = Style(name="IndentText", family="paragraph")
-    indent_style.addElement(TextProperties(fontsize="10pt"))
-    doc.styles.addElement(indent_style)
-
-    tabstops = TabStops()
-    tabstop = TabStop(position="4cm")
-    tabstops.addElement(tabstop)
-    tabstop_para = ParagraphProperties()
-    tabstop_para.addElement(tabstops)
-    tabstop_style = Style(name="TabstopField", family="paragraph")
-    tabstop_style.addElement(TextProperties(fontsize="10pt"))
-    tabstop_style.addElement(tabstop_para)
-    doc.styles.addElement(tabstop_style)
-
-    # Kundendaten
-    h = H(outlinelevel=1, stylename=h1_style, text=f"Kunde: {kundenname}")
-    doc.text.addElement(h)
-    doc.text.addElement(P(text=""))
-
-    h = H(outlinelevel=2, stylename=h2_style, text="Projektinformationen")
-    doc.text.addElement(h)
-
-    def add_field(label, value):
-        pp = P(stylename=tabstop_style)
-        text_with_tab = f"{label} :\t{value}"
-        teletype.addTextToElement(pp, text_with_tab)
-        doc.text.addElement(pp)
-
-    add_field("Projekt", kunde.get('projekt', ''))
-    add_field("Datum", kunde.get('datum', ''))
-    add_field("Adresse", kunde.get('adresse', ''))
-    add_field("PLZ", kunde.get('plz', ''))
-    add_field("Ort", kunde.get('ort', ''))
-    add_field("Ansprechpartner", kunde.get('ansprechpartner', ''))
-    add_field("Telefon", kunde.get('telefonnummer', ''))
-    add_field("E-Mail", kunde.get('email', ''))
-
-    doc.text.addElement(P(text=""))
-
-    # Anlagen
-    h = H(outlinelevel=2, stylename=h2_style, text="Anlagen")
-    doc.text.addElement(h)
-
-    anlagen = kunde.get('anlagen', [])
-    if not anlagen:
-        doc.text.addElement(P(stylename=normal_style, text="Keine Anlagen vorhanden."))
-    else:
-        for idx, anlage in enumerate(anlagen, 1):
-            doc.text.addElement(P(text=""))
-            doc.text.addElement(P(stylename=normal_style, text=f"{'=' * 60}"))
-            doc.text.addElement(
-                P(stylename=normal_style, text=f"Anlage {idx}: {anlage.get('beschreibung', 'Unbenannt')}"))
-            doc.text.addElement(P(text=""))
-
-            if anlage.get('code'):
-                add_field("Code", anlage.get('code', ''))
-            if anlage.get('bemerkung'):
-                add_field("Bemerkung", anlage.get('bemerkung', ''))
-
-            has_lokalisierung = any([
-                anlage.get('name'), anlage.get('adresse'), anlage.get('plz_ort'),
-                anlage.get('funktion'), anlage.get('geschoss'), anlage.get('gebaeude'),
-                anlage.get('raum')
-            ])
-
-            if has_lokalisierung:
-                doc.text.addElement(P(text=""))
-                doc.text.addElement(P(stylename=normal_style, text="Lokalisierung:"))
-
-                if anlage.get('name'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Name :\t{anlage.get('name', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('adresse'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Adresse :\t{anlage.get('adresse', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('plz_ort'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"PLZ & Ort :\t{anlage.get('plz_ort', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('funktion'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Funktion :\t{anlage.get('funktion', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('geschoss'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Geschoss :\t{anlage.get('geschoss', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('gebaeude'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Gebäude :\t{anlage.get('gebaeude', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('raum'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Raum :\t{anlage.get('raum', '')}")
-                    doc.text.addElement(p)
-
-            if anlage.get('zaehlernummer') or anlage.get('zaehlerstand'):
-                doc.text.addElement(P(text=""))
-                doc.text.addElement(P(stylename=normal_style, text="Zähler:"))
-                if anlage.get('zaehlernummer'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Zählernummer :\t{anlage.get('zaehlernummer', '')}")
-                    doc.text.addElement(p)
-                if anlage.get('zaehlerstand'):
-                    p = P(stylename=tabstop_style)
-                    teletype.addTextToElement(p, f"Zählerstand :\t{anlage.get('zaehlerstand', '')}")
-                    doc.text.addElement(p)
-
-            doc.text.addElement(P(text=""))
-            add_field("Export-Konfiguration",
-                      f"{anlage.get('felder', 0)} Felder × {anlage.get('reihen', 0)} Reihen")
-
-            text_inhalt = anlage.get('text_inhalt', '').strip()
-            if text_inhalt:
-                doc.text.addElement(P(text=""))
-                doc.text.addElement(P(stylename=normal_style, text="Beschriftungen:"))
-                for zeile in text_inhalt.split('\n'):
-                    if zeile.strip():
-                        doc.text.addElement(P(stylename=indent_style, text=zeile.strip()))
-
-    # Speichern
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    dateiname = f'Kunde_{kundenname.replace(" ", "_")}_{timestamp}.odt'
-    export_pfad = Path(export_base_path) / kundenname / dateiname
-    os.makedirs(export_pfad.parent, exist_ok=True)
-
-    doc.save(str(export_pfad))
-
-    return export_pfad
 
 
 def exportiere_kunde_odt_manual(kunde, kundenname, export_base_path):
@@ -765,14 +442,13 @@ def exportiere_kunde_odt_manual(kunde, kundenname, export_base_path):
     return export_pfad
 
 
-def exportiere_kunde_odt(kunde, kundenname, export_base_path, use_manual=False):
-    """Exportiert alle Daten eines Kunden als ODT-Datei (Wrapper-Funktion).
+def exportiere_kunde_odt(kunde, kundenname, export_base_path):
+    """Exportiert alle Daten eines Kunden als ODT-Datei.
 
     Args:
         kunde (dict): Kunden-Dictionary mit allen Daten
         kundenname (str): Name des Kunden
         export_base_path (Path): Basis-Pfad für Export-Verzeichnis
-        use_manual (bool): True für manuelle Erstellung (Android), False für odfpy (Desktop)
 
     Returns:
         Path: Pfad zur exportierten Datei
@@ -780,7 +456,4 @@ def exportiere_kunde_odt(kunde, kundenname, export_base_path, use_manual=False):
     Raises:
         ValueError: Wenn Kunde ungültig ist
     """
-    if use_manual or not HAS_ODFPY:
-        return exportiere_kunde_odt_manual(kunde, kundenname, export_base_path)
-    else:
-        return exportiere_kunde_odt_odfpy(kunde, kundenname, export_base_path)
+    return exportiere_kunde_odt_manual(kunde, kundenname, export_base_path)
