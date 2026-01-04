@@ -1,6 +1,8 @@
-# Anlagen Eingabe App - Flet Version
+# Verteiler Beschriften - Flet App
 
-Moderne Cross-Platform-App mit Flet Framework.
+Moderne Cross-Platform-App zur Erstellung von Verteilungsbeschriftungen für **Hager UZ005 Beschriftungshalterungen**.
+
+Erstellt zuschneidbare Tabellen im ODS-Format (OpenDocument Spreadsheet) für professionelle Elektroverteilungen.
 
 ## 📊 Projekt-Status
 
@@ -47,14 +49,19 @@ flet build apk
 
 ## 📝 Features
 
-- ✅ Kunden-Verwaltung
-- ✅ Anlagen-Verwaltung mit Lokalisierung
+- ✅ **Hager UZ005 Beschriftungen**: Perfekt zugeschnitten für Beschriftungshalterungen
+- ✅ **Zuschneidbare Tabellen**: ODS-Export zum direkten Ausschneiden
+- ✅ Kunden-Verwaltung mit Projektdaten
+- ✅ Anlagen-Verwaltung mit Lokalisierung (Raum, Gebäude, Geschoss)
+- ✅ Flexible Tabellen-Konfiguration (Felder × Reihen)
 - ✅ ODS-Export mit konfigurierbaren Styles
-- ✅ Cross-Platform (Desktop, Web, Mobile)
+- ✅ Automatische Code-Generierung (Raum-Gebäude-Geschoss-Funktion)
+- ✅ Cross-Platform (Desktop, Web, Android, iOS)
 - ✅ Persistente Settings (JSON)
-- ✅ Export/Import über Downloads
+- ✅ Export/Import über Documents
 - ✅ Eingabe-Validierung
 - ✅ Responsive Design
+- ✅ Watermark-Unterstützung in Tabellen
 
 ## 🎨 Flet Vorteile
 
@@ -66,8 +73,23 @@ flet build apk
 
 ## 📄 Lizenz
 
-[Lizenz hier einfügen]
+**Proprietäre Software - Alle Rechte vorbehalten**
+
+Copyright © 2026 Volker Heggemann
+
+Diese Software ist nur für **private, nicht-kommerzielle Nutzung** bestimmt.  
+Kommerzielle Nutzung, Änderungen oder Weiterverbreitung sind **nicht gestattet**.
+
+Für kommerzielle Lizenzen oder andere Nutzungsrechte kontaktieren Sie:  
+📧 vohegg@gmail.com
+
+Details siehe [LICENSE](LICENSE) Datei.
 
 ## 👤 Autor
 
-[Autor hier einfügen]
+**Volker Heggemann**  
+📧 vohegg@gmail.com
+
+---
+
+*Optimiert für Hager UZ005 Beschriftungshalterungen - Professionelle Verteilungsbeschriftung leicht gemacht!*
