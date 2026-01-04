@@ -1,0 +1,37 @@
+[project]
+name = "Verteiler Beschriften"
+version = "2.7.0"
+description = "Anlagen Eingabe und Verteiler-Beschriftung"
+authors = [
+    {name = "Volker Heggemann", email = "vohegg@gmail.com"}
+]
+requires-python = ">=3.8"
+license-files = [
+    "LICENSE",
+]
+dependencies = [
+    "flet>=0.24.0",
+]
+
+[project.optional-dependencies]
+desktop = [
+    # Keine zusätzlichen Desktop-Dependencies - nutzt manuelle ODS-Erstellung
+]
+
+[tool.flet]
+name = "Verteiler_beschriften"
+description = "Anlagen Eingabe und Verteiler-Beschriftung"
+version = "2.7.0"
+
+[tool.flet.app]
+path = "src"
+icon = "assets/logo.png"
+assets = ["assets"]
+
+[tool.flet.android]
+# Keine zusätzlichen Packages für Android - nutzt manuelle ODS-Erstellung
+
+permissions = [
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+]

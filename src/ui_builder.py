@@ -47,13 +47,30 @@ class UIBuilder:
     def erstelle_hauptansicht(self):
         """Erstellt die Hauptansicht."""
 
-        # Kunden-Auswahl
+        # Kunden-Auswahl mit About-Button
+        # Berechne Dropdown-Breite: Page-Breite - Button-Breite - Spacing - 10%
+        about_button_width = 100
+        spacing = 10
+        dropdown_width = self.app.page.width - about_button_width - spacing - (self.app.page.width * 0.1) if self.app.page.width else 400
+        
         dd = ft.Dropdown(
             options=[ft.dropdown.Option(k) for k in self.app.alle_kunden],
             value=self.app.aktiver_kunde_key,
+            width=dropdown_width,
         )
         dd.on_change = self.app.wechsel_kunden_auswahl
         self.app.ui["kunden_auswahl"] = dd
+        
+        about_btn = ft.ElevatedButton(
+            "About",
+            on_click=self.app.zeige_about_dialog,
+            width=about_button_width,
+        )
+        
+        auswahl_row = ft.Row(
+            [dd, about_btn],
+            spacing=spacing,
+        )
 
         # Navigation
         nav = ft.Row(
@@ -117,7 +134,7 @@ class UIBuilder:
         return ft.Column(
             [
                 ft.Text("Aktiver Kunde:", weight=ft.FontWeight.BOLD),
-                dd,
+                auswahl_row,  # Dropdown + About Button
                 nav,
                 ft.Text("Name (Neu/Umbenennen):",
                         weight=ft.FontWeight.BOLD, size=10),

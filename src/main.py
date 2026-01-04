@@ -396,6 +396,33 @@ class AnlagenApp:
     def navigiere_zu_settings(self, _e):
         self.navigate("settings")
 
+    def zeige_about_dialog(self, _e):
+        """Zeigt About-Dialog mit App-Informationen."""
+        dialog = ft.AlertDialog(
+            title=ft.Text("Verteiler Beschriften", weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [
+                    ft.Text("Version 2.7.0", size=14),
+                    ft.Divider(height=10),
+                    ft.Text("Autor:", weight=ft.FontWeight.BOLD, size=12),
+                    ft.Text("Volker Heggemann", size=12),
+                    ft.Text("vohegg@gmail.com", size=12),
+                    ft.Divider(height=10),
+                    ft.Text("Copyright © 2026 Volker Heggemann", size=11),
+                    ft.Text("Alle Rechte vorbehalten", size=11),
+                    ft.Divider(height=10),
+                    ft.Text("Optimiert für Hager UZ005", size=10, italic=True),
+                    ft.Text("Beschriftungshalterungen", size=10, italic=True),
+                ],
+                tight=True,
+                spacing=5,
+            ),
+            actions=[
+                ft.TextButton("Schließen", on_click=lambda e: self.page.close(dialog))
+            ],
+        )
+        self.page.open(dialog)
+    
     def zurueck_von_settings(self, _e):
         """Zurück von Settings zur Hauptansicht (ohne Detail-Daten zu speichern)."""
         self.refresh_main()
