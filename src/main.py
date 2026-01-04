@@ -396,6 +396,10 @@ class AnlagenApp:
     def navigiere_zu_settings(self, _e):
         self.navigate("settings")
 
+    def zurueck_von_settings(self, _e):
+        """Zurück von Settings zur Hauptansicht (ohne Detail-Daten zu speichern)."""
+        self.refresh_main()
+    
     def zurueck_zur_hauptansicht(self, _e):
         self.speichere_detail_daten()
         self.daten_dirty = True

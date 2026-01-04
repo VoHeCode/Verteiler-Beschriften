@@ -7,7 +7,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-WATERMARK_TEXT = "Verteiler beschriften (C) 2026 vohegg@gmail.com"
+WATERMARK_TEXT = "Verteiler-Beschriften - www.beispiel.de"
 WATERMARK_COLOR = "#666666"  # Dunkelgrau zum Testen
 def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
@@ -395,7 +395,7 @@ def create_content_xml(data, settings, NS, footer_data=None):
     
     # Rows mit Daten
     rows = data.get('rows', [])
-    absolute_row_counter = 1  # Startet bei 1
+    absolute_row_counter = 0  # Startet bei 0
     
     for row_data in rows:
         row_style = 'ro1' if row_data.get('is_header', False) else 'ro2'
@@ -430,7 +430,7 @@ def create_content_xml(data, settings, NS, footer_data=None):
                                          f'{{{NS["table"]}}}table-background': 'true',
                                          f'{{{NS["svg"]}}}x': '0.001cm',
                                          f'{{{NS["svg"]}}}y': f'{watermark_y:.2f}cm',
-                                         f'{{{NS["svg"]}}}width': '3cm',
+                                         f'{{{NS["svg"]}}}width': '20cm',
                                          f'{{{NS["svg"]}}}height': '0.4cm',
                                      })
                 textbox = ET.SubElement(frame, f'{{{NS["draw"]}}}text-box')

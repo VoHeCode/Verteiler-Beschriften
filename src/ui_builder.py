@@ -278,7 +278,7 @@ class UIBuilder:
 
     def erstelle_settings_dialog(self):
         back = ft.ElevatedButton("« Zurück",
-                                 on_click=self.app.zurueck_zur_hauptansicht)
+                                 on_click=self.app.zurueck_von_settings)
 
         settings_map = {
             "settings_felder_input": ("Standard Felder", "default_felder"),
@@ -327,8 +327,8 @@ class UIBuilder:
                 ft.dropdown.Option("SHORT", "Kurz (DD.MM.YY)"),
             ],
             value=self.app.settings.get("datum_format", "DE"),
-            on_change=self.app.auto_speichere_settings,
         )
+        datum_dropdown.on_change = self.app.auto_speichere_settings
         self.app.ui["settings_datum_format"] = datum_dropdown
 
         return ft.Column(
