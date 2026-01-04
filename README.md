@@ -6,8 +6,6 @@ Erstellt zuschneidbare Tabellen im ODS-Format (OpenDocument Spreadsheet) für pr
 
 ## 📊 Projekt-Status
 
-- **✅ Flet-Migration abgeschlossen**
-- Von Toga/Beeware zu Flet portiert
 - Bereit für Desktop, Web & Mobile (Android/iOS)
 
 ## 📁 Projekt-Struktur
@@ -92,4 +90,4 @@ Details siehe [LICENSE](LICENSE) Datei.
 
 ---
 
-*Optimiert für Hager UZ005 Beschriftungshalterungen - Professionelle Verteilungsbeschriftung leicht gemacht!*
+*Optimiert für Hager UZ005 Beschriftungshalterungen - professionelle Verteilungsbeschriftung leicht gemacht!*
