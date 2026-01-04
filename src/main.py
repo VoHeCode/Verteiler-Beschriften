@@ -249,6 +249,9 @@ class AnlagenApp:
         }
 
         self.map_get(mapping, kunde)
+        
+        # Speichere auch in JSON
+        self.speichere_daten()
 
     def on_kunde_feld_blur(self, e):
         """Prüft bei Feldverlassen ob Wert geändert wurde."""
@@ -297,6 +300,10 @@ class AnlagenApp:
         }
 
         self.map_set(mapping, kunde)
+        
+        # Aktualisiere kunde_input mit aktivem Kundennamen
+        if "kunde_input" in self.ui:
+            self.ui["kunde_input"].value = self.aktiver_kunde_key
         
         # Original-Werte für Vergleich speichern
         self.original_kunde_values = {

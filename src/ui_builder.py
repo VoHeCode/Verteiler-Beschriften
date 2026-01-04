@@ -51,7 +51,6 @@ class UIBuilder:
         dd = ft.Dropdown(
             options=[ft.dropdown.Option(k) for k in self.app.alle_kunden],
             value=self.app.aktiver_kunde_key,
-            expand=True,
         )
         dd.on_change = self.app.wechsel_kunden_auswahl
         self.app.ui["kunden_auswahl"] = dd
