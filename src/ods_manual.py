@@ -7,7 +7,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-WATERMARK_TEXT = "Verteiler-Beschriften - www.beispiel.de"
+WATERMARK_TEXT = "Verteiler-Beschriften - (C)2026 vohegg@gmail.com"
 WATERMARK_COLOR = "#666666"  # Dunkelgrau zum Testen
 def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
@@ -403,7 +403,7 @@ def create_content_xml(data, settings, NS, footer_data=None):
                            attrib={f'{{{NS["table"]}}}style-name': row_style})
         
         # Watermark in Zeile 2, 6, 10, 14... (row_counter ist 1, 5, 9...)
-        add_watermark = (absolute_row_counter % 4 == 1)
+        add_watermark = (absolute_row_counter % 4 == 0)
         
         absolute_row_counter += 1  # NACH der Prüfung erhöhen
         
