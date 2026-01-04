@@ -204,8 +204,6 @@ class AnlagenApp:
         self.show_file_snackbar("Geladen", "anlagen_daten.json")
 
     def speichere_daten(self, _e=None):
-        self.speichere_projekt_daten()
-        
         # Anlagen-Daten zurückschreiben zum aktiven Kunden
         if self.aktiver_kunde_key and self.aktiver_kunde_key in self.alle_kunden:
             self.alle_kunden[self.aktiver_kunde_key]["anlagen"] = self.anlagen_daten
@@ -274,12 +272,12 @@ class AnlagenApp:
         
         if current_value != original_value:
             # Wert hat sich geändert
+            # Speichere Datei
+
             self.speichere_projekt_daten()
             self.daten_dirty = True
             self.original_kunde_values[field_key] = current_value
-            
-            # Speichere Datei
-            self.speichere_daten()
+
             self.daten_dirty = False
 
     def aktualisiere_aktive_daten(self):
