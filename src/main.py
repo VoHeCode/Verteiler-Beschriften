@@ -709,6 +709,11 @@ class AnlagenApp:
             return self.dialog("Fehler", "Keine Anlage ausgewählt.")
 
         try:
+            # Hole Projekt vom aktiven Kunden
+            projekt = ''
+            if self.aktiver_kunde_key and self.aktiver_kunde_key in self.alle_kunden:
+                projekt = self.alle_kunden[self.aktiver_kunde_key].get('projekt', '')
+            
             # Android nutzt manuelle ODS-Erstellung
             use_manual = (self.page.platform == "android")
             
@@ -717,6 +722,7 @@ class AnlagenApp:
                 self.settings, 
                 self.get_export_base_path(),  # OHNE Kundenname - wird in odf_exporter hinzugefügt
                 self.aktiver_kunde_key,
+                projekt,
                 use_manual=use_manual
             )
             self.letzte_export_datei = pfad

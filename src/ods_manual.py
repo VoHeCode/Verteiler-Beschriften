@@ -8,13 +8,15 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 
-def create_ods_manual(data, settings, output_path):
+def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
     
     Args:
         data: Dictionary mit Tabellendaten
         settings: Settings Dictionary
         output_path: Ausgabepfad
+        footer_data: Optional - Dictionary mit Fußzeilen-Daten
+                    {filepath, kunde, projekt, code, beschreibung}
     """
     # Namespace Definitionen
     NS = {
@@ -43,7 +45,7 @@ def create_ods_manual(data, settings, output_path):
                     ET.tostring(manifest, encoding='utf-8', xml_declaration=True))
         
         # 3. content.xml
-        content = create_content_xml(data, settings, NS)
+        content = create_content_xml(data, settings, NS, footer_data)
         zf.writestr('content.xml',
                     ET.tostring(content, encoding='utf-8', xml_declaration=True))
         
@@ -133,7 +135,7 @@ def create_styles_xml(settings, NS):
     return root
 
 
-def create_content_xml(data, settings, NS):
+def create_content_xml(data, settings, NS, footer_data=None):
     """Erstellt content.xml mit Tabellendaten."""
     root = ET.Element(f'{{{NS["office"]}}}document-content',
                      attrib={f'{{{NS["office"]}}}version': '1.2'})
@@ -265,5 +267,38 @@ def create_content_xml(data, settings, NS):
             # Covered cells nach merged cell
             for _ in range(cell_data.get('colspan', 1) - 1):
                 ET.SubElement(row, f'{{{NS["table"]}}}covered-table-cell')
+    
+    # Fußzeile hinzufügen
+    if footer_data:
+        # Leerzeile
+        empty_row = ET.SubElement(table, f'{{{NS["table"]}}}table-row',
+                                 attrib={f'{{{NS["table"]}}}style-name': 'ro2'})
+        for _ in range(num_cols):
+            ET.SubElement(empty_row, f'{{{NS["table"]}}}table-cell')
+        
+        # Fußzeilen-Infos
+        footer_items = [
+            f"Datei: {footer_data.get('filepath', '')}",
+            f"Kunde: {footer_data.get('kunde', '')}",
+            f"Projekt: {footer_data.get('projekt', '')}",
+            f"Code: {footer_data.get('code', '')}",
+            f"Beschreibung: {footer_data.get('beschreibung', '')}"
+        ]
+        
+        for footer_text in footer_items:
+            footer_row = ET.SubElement(table, f'{{{NS["table"]}}}table-row',
+                                      attrib={f'{{{NS["table"]}}}style-name': 'ro2'})
+            # Erste Zelle mit Text über alle Spalten
+            footer_cell = ET.SubElement(footer_row, f'{{{NS["table"]}}}table-cell',
+                                       attrib={
+                                           f'{{{NS["table"]}}}style-name': 'ce3',
+                                           f'{{{NS["table"]}}}number-columns-spanned': str(num_cols)
+                                       })
+            p = ET.SubElement(footer_cell, f'{{{NS["text"]}}}p')
+            p.text = footer_text
+            
+            # Covered cells
+            for _ in range(num_cols - 1):
+                ET.SubElement(footer_row, f'{{{NS["table"]}}}covered-table-cell')
     
     return root

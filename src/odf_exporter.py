@@ -466,7 +466,7 @@ def exportiere_anlage_ods_odfpy(anlage, settings, export_base_path, kundenname):
     return export_pfad
 
 
-def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname):
+def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname, projekt=''):
     """Exportiert eine Anlage als ODS-Datei manuell (Android).
 
     Args:
@@ -474,6 +474,7 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname)
         settings (dict): Settings-Dictionary
         export_base_path (Path): Basis-Pfad für Export-Verzeichnis
         kundenname (str): Name des Kunden für Unterordner
+        projekt (str): Projekt-Name für Fußzeile
 
     Returns:
         Path: Pfad zur exportierten Datei
@@ -510,17 +511,27 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname)
 
     # Speichern
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    dateiname = f'{anlage["beschreibung"].replace(" ", "_")}_{timestamp}.ods'
+    beschreibung = anlage.get("beschreibung", "Anlage").replace(" ", "_")
+    dateiname = f'Kunde_{kundenname.replace(" ", "_")}_{beschreibung}_{timestamp}.ods'
     export_pfad = Path(export_base_path) / kundenname / dateiname
     os.makedirs(export_pfad.parent, exist_ok=True)
 
+    # Fußzeilen-Daten
+    footer_data = {
+        'filepath': str(export_pfad),
+        'kunde': kundenname,
+        'projekt': projekt,
+        'code': anlage.get('code', ''),
+        'beschreibung': anlage.get('beschreibung', '')
+    }
+
     # Erstelle ODS manuell
-    create_ods_manual(data, settings, str(export_pfad))
+    create_ods_manual(data, settings, str(export_pfad), footer_data)
 
     return export_pfad
 
 
-def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, use_manual=False):
+def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, projekt='', use_manual=False):
     """Exportiert eine Anlage als ODS-Datei (Wrapper-Funktion).
 
     Args:
@@ -528,6 +539,7 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, use_ma
         settings (dict): Settings-Dictionary
         export_base_path (Path): Basis-Pfad für Export-Verzeichnis
         kundenname (str): Name des Kunden für Unterordner
+        projekt (str): Projekt-Name für Fußzeile
         use_manual (bool): True für manuelle Erstellung (Android), False für odfpy (Desktop)
 
     Returns:
@@ -536,10 +548,8 @@ def exportiere_anlage_ods(anlage, settings, export_base_path, kundenname, use_ma
     Raises:
         ValueError: Wenn Anlage ungültig ist oder keine Einträge vorhanden
     """
-    if use_manual or not HAS_ODFPY:
-        return exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname)
-    else:
-        return exportiere_anlage_ods_odfpy(anlage, settings, export_base_path, kundenname)
+    # TEMPORÄR: Nutze IMMER manuelle Erstellung für Tests
+    return exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname, projekt)
 
 
 def exportiere_kunde_odt_odfpy(kunde, kundenname, export_base_path):
