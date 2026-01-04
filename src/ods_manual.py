@@ -25,6 +25,7 @@ def create_ods_manual(data, settings, output_path, footer_data=None):
         'text': 'urn:oasis:names:tc:opendocument:xmlns:text:1.0',
         'table': 'urn:oasis:names:tc:opendocument:xmlns:table:1.0',
         'fo': 'urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0',
+        'svg': 'urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0',
         'manifest': 'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0',
     }
     
@@ -50,7 +51,7 @@ def create_ods_manual(data, settings, output_path, footer_data=None):
                     ET.tostring(content, encoding='utf-8', xml_declaration=True))
         
         # 4. styles.xml
-        styles = create_styles_xml(settings, NS)
+        styles = create_styles_xml(settings, NS, footer_data)
         zf.writestr('styles.xml',
                     ET.tostring(styles, encoding='utf-8', xml_declaration=True))
         
@@ -101,15 +102,39 @@ def create_meta_xml(NS):
     return root
 
 
-def create_styles_xml(settings, NS):
-    """Erstellt styles.xml mit Page Layout und Styles."""
+def create_styles_xml(settings, NS, footer_data=None):
+    """Erstellt styles.xml mit Page Layout, Header, Footer und Styles."""
     root = ET.Element(f'{{{NS["office"]}}}document-styles',
                      attrib={f'{{{NS["office"]}}}version': '1.2'})
     
     # Automatische Styles
     auto_styles = ET.SubElement(root, f'{{{NS["office"]}}}automatic-styles')
     
-    # Page Layout
+    # Text-Style MT1 für Header (10pt)
+    text_style_header = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                              attrib={
+                                  f'{{{NS["style"]}}}name': 'MT1',
+                                  f'{{{NS["style"]}}}family': 'text'
+                              })
+    ET.SubElement(text_style_header, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '10pt',
+                     f'{{{NS["fo"]}}}font-family': 'Liberation Sans',
+                 })
+    
+    # Text-Style MT2 für Footer (6pt)
+    text_style_footer = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+                              attrib={
+                                  f'{{{NS["style"]}}}name': 'MT2',
+                                  f'{{{NS["style"]}}}family': 'text'
+                              })
+    ET.SubElement(text_style_footer, f'{{{NS["style"]}}}text-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': '6pt',
+                     f'{{{NS["fo"]}}}font-family': 'Liberation Sans',
+                 })
+    
+    # Page Layout mit Header/Footer-Style
     page_layout = ET.SubElement(auto_styles, f'{{{NS["style"]}}}page-layout',
                                 attrib={f'{{{NS["style"]}}}name': 'PageLayout1'})
     
@@ -118,11 +143,31 @@ def create_styles_xml(settings, NS):
                                   f'{{{NS["fo"]}}}page-width': f"{settings.get('seite_breite', 29.7)}cm",
                                   f'{{{NS["fo"]}}}page-height': f"{settings.get('seite_hoehe', 21.0)}cm",
                                   f'{{{NS["fo"]}}}margin-top': f"{settings.get('rand_oben', 2.0)}cm",
-                                  f'{{{NS["fo"]}}}margin-bottom': f"{settings.get('rand_unten', 2.0)}cm",
-                                  f'{{{NS["fo"]}}}margin-left': f"{settings.get('rand_links', 2.0)}cm",
-                                  f'{{{NS["fo"]}}}margin-right': f"{settings.get('rand_rechts', 2.0)}cm",
+                                  f'{{{NS["fo"]}}}margin-bottom': f"{settings.get('rand_unten', 1.5)}cm",
+                                  f'{{{NS["fo"]}}}margin-left': f"{settings.get('rand_links', 1.0)}cm",
+                                  f'{{{NS["fo"]}}}margin-right': f"{settings.get('rand_rechts', 1.0)}cm",
                                   'style:print-orientation': 'landscape',
                               })
+    
+    # Header-Style
+    header_style = ET.SubElement(page_layout, f'{{{NS["style"]}}}header-style')
+    ET.SubElement(header_style, f'{{{NS["style"]}}}header-footer-properties',
+                 attrib={
+                     f'{{{NS["fo"]}}}min-height': '0.75cm',
+                     f'{{{NS["fo"]}}}margin-left': '0cm',
+                     f'{{{NS["fo"]}}}margin-right': '0cm',
+                     f'{{{NS["fo"]}}}margin-bottom': '0.25cm',
+                 })
+    
+    # Footer-Style
+    footer_style = ET.SubElement(page_layout, f'{{{NS["style"]}}}footer-style')
+    ET.SubElement(footer_style, f'{{{NS["style"]}}}header-footer-properties',
+                 attrib={
+                     f'{{{NS["svg"]}}}height': '0.75cm',
+                     f'{{{NS["fo"]}}}margin-left': '0cm',
+                     f'{{{NS["fo"]}}}margin-right': '0cm',
+                     f'{{{NS["fo"]}}}margin-top': '0.25cm',
+                 })
     
     # Master Styles
     master_styles = ET.SubElement(root, f'{{{NS["office"]}}}master-styles')
@@ -131,6 +176,48 @@ def create_styles_xml(settings, NS):
                                    f'{{{NS["style"]}}}name': 'Default',
                                    f'{{{NS["style"]}}}page-layout-name': 'PageLayout1'
                                })
+    
+    # Header mit 3 Regionen
+    if footer_data:
+        header = ET.SubElement(master_page, f'{{{NS["style"]}}}header')
+        
+        # Region Links: Kundenname
+        region_left = ET.SubElement(header, f'{{{NS["style"]}}}region-left')
+        p_left = ET.SubElement(region_left, f'{{{NS["text"]}}}p')
+        p_left.text = footer_data.get('kunde', '')
+        
+        # Region Mitte: Projekt
+        region_center = ET.SubElement(header, f'{{{NS["style"]}}}region-center')
+        p_center = ET.SubElement(region_center, f'{{{NS["text"]}}}p')
+        p_center.text = footer_data.get('projekt', '')
+        
+        # Region Rechts: Anlagenbeschreibung
+        region_right = ET.SubElement(header, f'{{{NS["style"]}}}region-right')
+        p_right = ET.SubElement(region_right, f'{{{NS["text"]}}}p')
+        span_right = ET.SubElement(p_right, f'{{{NS["text"]}}}span',
+                                  attrib={f'{{{NS["text"]}}}style-name': 'MT1'})
+        span_right.text = footer_data.get('beschreibung', '')
+    
+    # Leerer Footer (normal)
+    ET.SubElement(master_page, f'{{{NS["style"]}}}footer')
+    
+    # Footer-First mit 2 Regionen
+    if footer_data:
+        footer_first = ET.SubElement(master_page, f'{{{NS["style"]}}}footer-first')
+        
+        # Region Links: Dateipfad
+        region_left = ET.SubElement(footer_first, f'{{{NS["style"]}}}region-left')
+        p_left = ET.SubElement(region_left, f'{{{NS["text"]}}}p')
+        span_left = ET.SubElement(p_left, f'{{{NS["text"]}}}span',
+                                 attrib={f'{{{NS["text"]}}}style-name': 'MT2'})
+        span_left.text = footer_data.get('filepath', '')
+        
+        # Region Rechts: Code
+        region_right = ET.SubElement(footer_first, f'{{{NS["style"]}}}region-right')
+        p_right = ET.SubElement(region_right, f'{{{NS["text"]}}}p')
+        span_right = ET.SubElement(p_right, f'{{{NS["text"]}}}span',
+                                  attrib={f'{{{NS["text"]}}}style-name': 'MT2'})
+        span_right.text = footer_data.get('code', '')
     
     return root
 
@@ -181,12 +268,14 @@ def create_content_xml(data, settings, NS, footer_data=None):
     ET.SubElement(beschr_cell, f'{{{NS["style"]}}}table-cell-properties',
                  attrib={
                      f'{{{NS["fo"]}}}border': border,
+                     f'{{{NS["fo"]}}}wrap-option': 'wrap',
                      f'{{{NS["style"]}}}vertical-align': 'top',
                  })
     ET.SubElement(beschr_cell, f'{{{NS["style"]}}}text-properties',
                  attrib={
                      f'{{{NS["fo"]}}}font-size': f"{settings.get('fontsize_beschriftung_zelle', 7)}pt",
                      f'{{{NS["fo"]}}}font-weight': 'bold',
+                     f'{{{NS["fo"]}}}hyphenate': 'true',
                  })
     ET.SubElement(beschr_cell, f'{{{NS["style"]}}}paragraph-properties',
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
@@ -200,12 +289,14 @@ def create_content_xml(data, settings, NS, footer_data=None):
     ET.SubElement(merged_cell, f'{{{NS["style"]}}}table-cell-properties',
                  attrib={
                      f'{{{NS["fo"]}}}border': border,
+                     f'{{{NS["fo"]}}}wrap-option': 'wrap',
                      f'{{{NS["style"]}}}vertical-align': 'top',
                  })
     ET.SubElement(merged_cell, f'{{{NS["style"]}}}text-properties',
                  attrib={
                      f'{{{NS["fo"]}}}font-size': f"{settings.get('fontsize_gemergte_zelle', 7)}pt",
                      f'{{{NS["fo"]}}}font-weight': 'bold',
+                     f'{{{NS["fo"]}}}hyphenate': 'true',
                  })
     ET.SubElement(merged_cell, f'{{{NS["style"]}}}paragraph-properties',
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
@@ -219,10 +310,14 @@ def create_content_xml(data, settings, NS, footer_data=None):
     ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}table-cell-properties',
                  attrib={
                      f'{{{NS["fo"]}}}border': border,
+                     f'{{{NS["fo"]}}}wrap-option': 'wrap',
                      f'{{{NS["style"]}}}vertical-align': 'top',
                  })
     ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}text-properties',
-                 attrib={f'{{{NS["fo"]}}}font-size': f"{settings.get('fontsize_inhalt_zelle', 6)}pt"})
+                 attrib={
+                     f'{{{NS["fo"]}}}font-size': f"{settings.get('fontsize_inhalt_zelle', 6)}pt",
+                     f'{{{NS["fo"]}}}hyphenate': 'true',
+                 })
     ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}paragraph-properties',
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
     
@@ -267,38 +362,5 @@ def create_content_xml(data, settings, NS, footer_data=None):
             # Covered cells nach merged cell
             for _ in range(cell_data.get('colspan', 1) - 1):
                 ET.SubElement(row, f'{{{NS["table"]}}}covered-table-cell')
-    
-    # Fußzeile hinzufügen
-    if footer_data:
-        # Leerzeile
-        empty_row = ET.SubElement(table, f'{{{NS["table"]}}}table-row',
-                                 attrib={f'{{{NS["table"]}}}style-name': 'ro2'})
-        for _ in range(num_cols):
-            ET.SubElement(empty_row, f'{{{NS["table"]}}}table-cell')
-        
-        # Fußzeilen-Infos
-        footer_items = [
-            f"Datei: {footer_data.get('filepath', '')}",
-            f"Kunde: {footer_data.get('kunde', '')}",
-            f"Projekt: {footer_data.get('projekt', '')}",
-            f"Code: {footer_data.get('code', '')}",
-            f"Beschreibung: {footer_data.get('beschreibung', '')}"
-        ]
-        
-        for footer_text in footer_items:
-            footer_row = ET.SubElement(table, f'{{{NS["table"]}}}table-row',
-                                      attrib={f'{{{NS["table"]}}}style-name': 'ro2'})
-            # Erste Zelle mit Text über alle Spalten
-            footer_cell = ET.SubElement(footer_row, f'{{{NS["table"]}}}table-cell',
-                                       attrib={
-                                           f'{{{NS["table"]}}}style-name': 'ce3',
-                                           f'{{{NS["table"]}}}number-columns-spanned': str(num_cols)
-                                       })
-            p = ET.SubElement(footer_cell, f'{{{NS["text"]}}}p')
-            p.text = footer_text
-            
-            # Covered cells
-            for _ in range(num_cols - 1):
-                ET.SubElement(footer_row, f'{{{NS["table"]}}}covered-table-cell')
     
     return root

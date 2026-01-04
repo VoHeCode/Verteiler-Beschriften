@@ -85,7 +85,7 @@ class UIBuilder:
             self.tf(
                 key,
                 label=label,
-                on_change=self.app.speichere_projekt_daten
+                on_blur=self.app.on_kunde_feld_blur
             )
 
         # Anlagen Container und RadioGroup

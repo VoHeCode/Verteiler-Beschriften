@@ -204,6 +204,10 @@ class AnlagenApp:
         self.show_file_snackbar("Geladen", "anlagen_daten.json")
 
     def speichere_daten(self, _e=None):
+        # Nur speichern wenn Änderungen vorhanden
+        if not self.daten_dirty:
+            return
+        
         # Anlagen-Daten zurückschreiben zum aktiven Kunden
         if self.aktiver_kunde_key and self.aktiver_kunde_key in self.alle_kunden:
             self.alle_kunden[self.aktiver_kunde_key]["anlagen"] = self.anlagen_daten
@@ -227,6 +231,7 @@ class AnlagenApp:
         if not ok:
             self.dialog("Speicher-Fehler", fehler)
         else:
+            self.daten_dirty = False  # Flag zurücksetzen nach erfolgreichem Speichern
             self.show_file_snackbar("Gespeichert", "anlagen_daten.json")
 
     def speichere_projekt_daten(self, _e=None):
@@ -248,7 +253,8 @@ class AnlagenApp:
 
         self.map_get(mapping, kunde)
         
-        # Speichere auch in JSON
+        # Markiere als geändert und speichere
+        self.daten_dirty = True
         self.speichere_daten()
 
     def on_kunde_feld_blur(self, e):
@@ -271,14 +277,31 @@ class AnlagenApp:
         original_value = self.original_kunde_values[field_key]
         
         if current_value != original_value:
-            # Wert hat sich geändert
-            # Speichere Datei
-
-            self.speichere_projekt_daten()
-            self.daten_dirty = True
+            # Wert hat sich geändert - schreibe direkt in RAM
+            kunde = self.alle_kunden[self.aktiver_kunde_key]
+            
+            # Mapping UI-Key → Daten-Key
+            mapping = {
+                "kunde_projekt": "projekt",
+                "kunde_datum": "datum",
+                "kunde_adresse": "adresse",
+                "kunde_plz": "plz",
+                "kunde_ort": "ort",
+                "kunde_ansprechpartner": "ansprechpartner",
+                "kunde_telefonnummer": "telefonnummer",
+                "kunde_email": "email",
+            }
+            
+            data_key = mapping.get(field_key)
+            if data_key:
+                kunde[data_key] = current_value
+            
+            # Aktualisiere Original-Wert
             self.original_kunde_values[field_key] = current_value
-
-            self.daten_dirty = False
+            
+            # Markiere als geändert und speichere
+            self.daten_dirty = True
+            self.speichere_daten()
 
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
@@ -349,6 +372,12 @@ class AnlagenApp:
         """Callback wenn Anlage in RadioGroup ausgewählt wird."""
         if e.control.value:
             self.ausgewaehlte_anlage_id = int(e.control.value)
+            
+            # Setze auch aktuelle_anlage für Export
+            for anlage in self.anlagen_daten:
+                if anlage['id'] == self.ausgewaehlte_anlage_id:
+                    self.aktuelle_anlage = anlage
+                    break
 
     # ---------------------------------------------------------
     # Kunden
@@ -401,6 +430,8 @@ class AnlagenApp:
         self.ui["kunden_auswahl"].value = name
 
         self.aktualisiere_aktive_daten()
+        
+        self.daten_dirty = True
         self.speichere_daten()
 
         self.ui["kunde_input"].value = ""
@@ -425,6 +456,7 @@ class AnlagenApp:
         self.ui["kunden_auswahl"].options = [ft.dropdown.Option(k) for k in self.alle_kunden]
         self.ui["kunden_auswahl"].value = neuer
 
+        self.daten_dirty = True
         self.speichere_daten()
         self.ui["kunde_input"].value = ""
         self.page.update()
@@ -444,6 +476,7 @@ class AnlagenApp:
                 self.ui["kunden_auswahl"].options = [ft.dropdown.Option(k) for k in self.alle_kunden]
                 self.ui["kunden_auswahl"].value = self.aktiver_kunde_key
                 self.aktualisiere_aktive_daten()
+                self.daten_dirty = True
                 self.speichere_daten()
 
         dlg = ft.AlertDialog(
@@ -486,6 +519,7 @@ class AnlagenApp:
 
         self.next_anlage_id += 1
         self.anlagen_daten.append(neue)
+        self.daten_dirty = True
         self.speichere_daten()
         
         # Hauptansicht komplett neu aufbauen
@@ -496,26 +530,20 @@ class AnlagenApp:
         self.dialog("Erfolg", f'Anlage "{neue["beschreibung"]}" hinzugefügt.')
 
     def anlage_loeschen(self, _e):
-        print("LÖSCHEN-BUTTON GEKLICKT!")
-        print(f"ausgewaehlte_anlage_id = {self.ausgewaehlte_anlage_id} (Typ: {type(self.ausgewaehlte_anlage_id)})")
-        print(f"anlagen_daten IDs: {[(a['id'], type(a['id'])) for a in self.anlagen_daten]}")
-        
         if not self.ausgewaehlte_anlage_id:
             return self.dialog("Fehler", "Bitte zuerst Anlage auswählen.")
 
         anlage = next((a for a in self.anlagen_daten if a["id"] == self.ausgewaehlte_anlage_id), None)
-        print(f"Gefundene Anlage: {anlage}")
         
         if not anlage:
             return self.dialog("Fehler", "Anlage nicht gefunden.")
 
         def do_delete():
-            geloeschte_id = self.ausgewaehlte_anlage_id
             self.anlagen_daten = [a for a in self.anlagen_daten if a["id"] != self.ausgewaehlte_anlage_id]
             # Zurückschreiben in alle_kunden
             self.alle_kunden[self.aktiver_kunde_key]["anlagen"] = self.anlagen_daten
-            print(f"Anlage ID {geloeschte_id} gelöscht")
             self.ausgewaehlte_anlage_id = None
+            self.daten_dirty = True
             self.speichere_daten()
             # Hauptansicht komplett neu aufbauen
             hauptansicht = self.ui_builder.erstelle_hauptansicht()
@@ -579,6 +607,7 @@ class AnlagenApp:
 
     def zurueck_zur_hauptansicht(self, _e):
         self.speichere_detail_daten()
+        self.daten_dirty = True
         self.speichere_daten()
         haupt = self.ui_builder.erstelle_hauptansicht()
         self.show(haupt)
@@ -623,6 +652,7 @@ class AnlagenApp:
 
     def auto_speichere_detail_daten(self, _e):
         self.speichere_detail_daten()
+        self.daten_dirty = True
         self.speichere_daten()
 
         # ---------------------------------------------------------
@@ -663,6 +693,7 @@ class AnlagenApp:
 
     def aktualisiere_anlagen_code_und_speichere(self, e):
         self.aktualisiere_anlagen_code(e)
+        self.daten_dirty = True
         self.speichere_daten()
 
         # ---------------------------------------------------------
@@ -703,6 +734,7 @@ class AnlagenApp:
     def info_aktualisieren_und_speichern(self, e=None):
         self.info_aktualisieren(e)
         self.speichere_detail_daten()
+        self.daten_dirty = True
         self.speichere_daten()
 
         # ---------------------------------------------------------
@@ -750,7 +782,6 @@ class AnlagenApp:
             return self.dialog('Fehler', 'Kein Kunde ausgewählt.')
 
         self.speichere_projekt_daten()
-        self.speichere_daten()
 
         kunde = self.alle_kunden[self.aktiver_kunde_key]
 
