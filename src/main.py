@@ -10,7 +10,6 @@ from constants import APP_VERSION, APP_NAME, SPALTEN_PRO_EINHEIT
 from data_manager import DataManager
 from ui_builder import UIBuilder
 from odf_exporter import validiere_eintraege, exportiere_anlage_ods, exportiere_kunde_odt
-from android_handler import exportiere_zu_downloads as export_downloads, importiere_von_downloads as import_downloads
 
 
 class AnlagenApp:
@@ -25,12 +24,12 @@ class AnlagenApp:
         # Registry für ALLE UI-Elemente
         self.ui = {}
 
-        # Datenpfad
+        # Datenpfad - User-zugänglich auf ALLEN Plattformen
         import os
         storage = os.getenv("FLET_APP_STORAGE_DATA")
         if storage:
-            # Mobile (Android/iOS) - App-interner Speicher
-            self.data_path = Path(storage) / "Verteiler_Beschriften"
+            # Mobile (Android/iOS) - User-zugänglich unter Documents
+            self.data_path = Path("/storage/emulated/0/Documents/Verteiler_Beschriften")
         else:
             # Desktop - Sichtbarer Ordner in Dokumente
             docs_de = Path.home() / "Dokumente" / "Verteiler_Beschriften"
@@ -39,7 +38,11 @@ class AnlagenApp:
                 self.data_path = docs_de
             else:
                 self.data_path = docs_en
+        
+        # Erstelle Basis-Ordnerstruktur beim Start
         self.data_path.mkdir(parents=True, exist_ok=True)
+        (self.data_path / "Export").mkdir(parents=True, exist_ok=True)
+        (self.data_path / "Import").mkdir(parents=True, exist_ok=True)
 
         # Manager
         self.data_manager = DataManager(self.data_path)
@@ -84,10 +87,10 @@ class AnlagenApp:
         self.page.show_dialog(dlg)
 
     def show_file_snackbar(self, action, filename):
-        """Zeigt Snackbar für Datei-Operationen (5 Sek)."""
+        """Zeigt Snackbar für Datei-Operationen (4 Sek)."""
         snackbar = ft.SnackBar(
             content=ft.Text(f"{action}: {filename}"),
-            duration=5000,
+            duration=4000,
         )
         self.page.show_dialog(snackbar)
 
@@ -97,68 +100,23 @@ class AnlagenApp:
             self.ui["status_text"].value = text
             self.page.update()
 
-    def _test_write_access(self, path: Path) -> bool:
-        """Testet Schreibzugriff auf Pfad."""
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-            test_file = path / ".test_write"
-            test_file.write_text("test")
-            test_file.unlink()
-            return True
-        except:
-            return False
-
     def get_export_path(self):
-        """Gibt OS-spezifischen Export-Pfad mit Schreibtest zurück."""
+        """Gibt Export-Pfad MIT Kundenname zurück - IMMER user-zugänglich."""
         kundenname = self.aktiver_kunde_key or "Allgemein"
-        
-        if self.page.platform == "android":
-            # Android: Mehrere Pfade probieren
-            paths = [
-                Path("/storage/emulated/0/Documents/Verteiler_beschriften/Export") / kundenname,
-                Path("/storage/emulated/0/Download/Verteiler_beschriften/Export") / kundenname,
-            ]
-            for p in paths:
-                if self._test_write_access(p):
-                    return p
-            
-            # Fallback: App-interner Speicher
-            import os
-            storage = os.getenv("FLET_APP_STORAGE_DATA")
-            if storage:
-                fallback = Path(storage) / "Export" / kundenname
-            else:
-                fallback = self.data_path / "Export" / kundenname
-            fallback.mkdir(parents=True, exist_ok=True)
-            return fallback
-        else:
-            # Desktop: Export-Unterordner in Datenpfad
-            base = self.data_path / "Export" / kundenname
-            base.mkdir(parents=True, exist_ok=True)
-            return base
+        base = self.get_export_base_path()
+        export_path = base / kundenname
+        export_path.mkdir(parents=True, exist_ok=True)
+        return export_path
 
     def get_export_base_path(self):
-        """Gibt Basis-Export-Pfad zurück (ohne Kundenname) - für Statusanzeige."""
-        if self.page.platform == "android":
-            # Android: Mehrere Pfade probieren
-            paths = [
-                Path("/storage/emulated/0/Documents/Verteiler_beschriften/Export"),
-                Path("/storage/emulated/0/Download/Verteiler_beschriften/Export"),
-            ]
-            for p in paths:
-                if self._test_write_access(p):
-                    return p
-            
-            # Fallback: App-interner Speicher
-            import os
-            storage = os.getenv("FLET_APP_STORAGE_DATA")
-            if storage:
-                return Path(storage) / "Export"
-            else:
-                return self.data_path / "Export"
-        else:
-            # Desktop: Export-Unterordner in Datenpfad
-            return self.data_path / "Export"
+        """Gibt Basis-Export-Pfad zurück (ohne Kundenname) - IMMER user-zugänglich.
+        
+        Returns:
+            Path: Export-Basis-Pfad
+        """
+        export_path = self.data_path / "Export"
+        export_path.mkdir(parents=True, exist_ok=True)
+        return export_path
 
     def confirm_dialog(self, title, message, on_yes_callback):
         """Zeigt modalen Bestätigungsdialog mit Ja/Nein Buttons."""
@@ -197,18 +155,7 @@ class AnlagenApp:
 
     def pruefe_import_ordner(self):
         """Prüft Import-Ordner auf JSON-Dateien und importiert diese."""
-        import_path = self.data_path.parent / "Import" if self.page.platform != "android" else self.data_path / "Import"
-        
-        if self.page.platform == "android":
-            # Android: Zusätzlich Download-Ordner prüfen
-            paths = [
-                Path("/storage/emulated/0/Documents/Verteiler_beschriften/Import"),
-                Path("/storage/emulated/0/Download/Verteiler_beschriften/Import"),
-            ]
-            for p in paths:
-                if p.exists():
-                    import_path = p
-                    break
+        import_path = self.data_path / "Import"
         
         if not import_path.exists():
             return
@@ -229,6 +176,7 @@ class AnlagenApp:
             # Lösche aus Import-Ordner
             import_file.unlink()
             
+            self.show_file_snackbar("Import erfolgreich", import_file.name)
             self.dialog("Import erfolgreich", 
                        f"Daten importiert aus:\n{import_file.name}")
         except Exception as e:
@@ -242,9 +190,8 @@ class AnlagenApp:
         self.page.update()
         self.aktualisiere_aktive_daten()
         
-        # Statusleiste: Zeige Export-Pfad (user-zugänglich)
-        export_base = self.get_export_base_path()
-        self.update_status(f"Export: {export_base}")
+        # Statusleiste: Zeige Datenpfad (user-zugänglich auf allen Plattformen)
+        self.update_status(f"Daten: {self.data_path}")
 
     # ---------------------------------------------------------
     # Daten
@@ -768,13 +715,11 @@ class AnlagenApp:
             pfad = exportiere_anlage_ods(
                 self.aktuelle_anlage, 
                 self.settings, 
-                self.get_export_path(),
+                self.get_export_base_path(),  # OHNE Kundenname - wird in odf_exporter hinzugefügt
                 self.aktiver_kunde_key,
                 use_manual=use_manual
             )
             self.letzte_export_datei = pfad
-            self.ui["teile_button"].disabled = False
-            self.page.update()
             self.show_file_snackbar("Exportiert", str(pfad))
             self.dialog("Erfolg", f"ODS exportiert:\n\n{pfad}")
 
@@ -805,7 +750,7 @@ class AnlagenApp:
             pfad = exportiere_kunde_odt(
                 kunde, 
                 self.aktiver_kunde_key, 
-                self.get_export_path(),
+                self.get_export_base_path(),  # OHNE Kundenname - wird in odf_exporter hinzugefügt
                 use_manual=use_manual
             )
             self.show_file_snackbar("Exportiert", str(pfad))
@@ -845,15 +790,46 @@ class AnlagenApp:
         # ---------------------------------------------------------
 
     def exportiere_zu_downloads(self, _e):
-        ok, dateien, fehler = export_downloads(self.data_manager)
-        if ok:
-            for datei in dateien:
-                self.show_file_snackbar("Exportiert", datei)
-            self.dialog("Export erfolgreich", "\n".join(dateien))
-        else:
-            self.dialog("Export-Fehler", fehler)
+        """Exportiert Daten und Settings als JSON zu Documents/Export."""
+        try:
+            import shutil
+            from datetime import datetime
+            
+            export_base = self.get_export_base_path()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            dateien = []
+            
+            # Exportiere Anlagen-Daten
+            source_daten = self.data_path / "anlagen_daten.json"
+            if source_daten.exists():
+                target_daten = export_base / f"Verteiler_Daten_{timestamp}.json"
+                shutil.copy(source_daten, target_daten)
+                dateien.append(target_daten.name)
+                self.show_file_snackbar("Exportiert", target_daten.name)
+            
+            # Exportiere Settings
+            source_settings = self.data_path / "app_settings.json"
+            if source_settings.exists():
+                target_settings = export_base / f"Verteiler_Einstellungen_{timestamp}.json"
+                shutil.copy(source_settings, target_settings)
+                dateien.append(target_settings.name)
+                self.show_file_snackbar("Exportiert", target_settings.name)
+            
+            if dateien:
+                self.dialog("Export erfolgreich", 
+                           f"Dateien exportiert nach:\n{export_base}\n\n" + "\n".join(dateien))
+            else:
+                self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
+        
+        except Exception as e:
+            self.dialog("Export-Fehler", str(e))
 
     def exportiere_alle_kunden(self, _e):
+        """Zeigt Snackbar - später mehrseitige ODT-Datei."""
+        self.show_file_snackbar("Info", "Alle Kunden als Textdatei")
+    
+    def exportiere_alle_daten_json(self, _e):
         """Exportiert alle Kundendaten als JSON in Export-Ordner."""
         try:
             import shutil
@@ -864,23 +840,8 @@ class AnlagenApp:
             if not source.exists():
                 return self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
             
-            # Ziel: Export-Ordner (ohne Kundenname)
-            if self.page.platform == "android":
-                paths = [
-                    Path("/storage/emulated/0/Documents/Verteiler_beschriften/Export"),
-                    Path("/storage/emulated/0/Download/Verteiler_beschriften/Export"),
-                ]
-                export_base = None
-                for p in paths:
-                    if self._test_write_access(p):
-                        export_base = p
-                        break
-                if not export_base:
-                    export_base = self.data_path / "Export"
-            else:
-                export_base = self.data_path / "Export"
-            
-            export_base.mkdir(parents=True, exist_ok=True)
+            # Ziel: Export-Ordner (OHNE Kundenname)
+            export_base = self.get_export_base_path()
             
             # Dateiname mit Timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -891,7 +852,7 @@ class AnlagenApp:
             
             self.show_file_snackbar("Exportiert", str(target))
             self.dialog("Export erfolgreich", 
-                       f"Alle Kundendaten exportiert:\n{target.name}\n\nOrdner: {export_base}")
+                       f"Alle Kundendaten exportiert:\n\n{target}")
         
         except Exception as e:
             self.dialog("Export-Fehler", str(e))
@@ -914,19 +875,57 @@ class AnlagenApp:
             self.dialog("Keine Logs", "FLET_APP_CONSOLE nicht verfügbar")
 
     def importiere_von_downloads(self, _e):
-        ok, dateien, fehler = import_downloads(self.data_manager)
-        if ok:
-            for datei in dateien:
-                self.show_file_snackbar("Importiert", datei)
-            self.settings = self.data_manager.lade_settings()
-            self.lade_daten()
-            self.aktualisiere_aktive_daten()
-            self.dialog("Import erfolgreich", "\n".join(dateien))
-        else:
-            if "Keine" in fehler:
-                self.dialog("Keine Dateien", fehler)
+        """Importiert Daten und Settings aus Documents/Import."""
+        try:
+            import shutil
+            
+            import_path = self.data_path / "Import"
+            
+            if not import_path.exists():
+                return self.dialog("Keine Dateien", 
+                                  f"Import-Ordner nicht gefunden:\n{import_path}")
+            
+            # Suche JSON-Dateien
+            json_files = list(import_path.glob("*.json"))
+            if not json_files:
+                return self.dialog("Keine Dateien", 
+                                  f"Keine JSON-Dateien im Import-Ordner:\n{import_path}")
+            
+            dateien = []
+            
+            # Importiere Dateien
+            for json_file in json_files:
+                filename = json_file.name.lower()
+                
+                if "daten" in filename or "anlagen" in filename:
+                    # Anlagen-Daten
+                    target = self.data_path / "anlagen_daten.json"
+                    shutil.copy(json_file, target)
+                    dateien.append(json_file.name)
+                    self.show_file_snackbar("Importiert", json_file.name)
+                    
+                elif "einstellung" in filename or "settings" in filename:
+                    # Settings
+                    target = self.data_path / "app_settings.json"
+                    shutil.copy(json_file, target)
+                    dateien.append(json_file.name)
+                    self.show_file_snackbar("Importiert", json_file.name)
+                
+                # Lösche importierte Datei aus Import-Ordner
+                json_file.unlink()
+            
+            if dateien:
+                # Lade neue Daten
+                self.settings = self.data_manager.lade_settings()
+                self.lade_daten()
+                self.aktualisiere_aktive_daten()
+                self.dialog("Import erfolgreich", 
+                           f"Importierte Dateien:\n" + "\n".join(dateien))
             else:
-                self.dialog("Import-Fehler", fehler)
+                self.dialog("Keine Dateien", "Keine passenden JSON-Dateien gefunden.")
+        
+        except Exception as e:
+            self.dialog("Import-Fehler", str(e))
 
 
 def main(page: ft.Page):

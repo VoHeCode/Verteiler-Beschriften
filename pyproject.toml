@@ -1,6 +1,6 @@
 [project]
 name = "Verteiler Beschriften"
-version = "2.3.4"
+version = "2.5.0"
 description = "Anlagen Eingabe und Verteiler-Beschriftung"
 requires-python = ">=3.8"
 license-files = [

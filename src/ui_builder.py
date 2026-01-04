@@ -17,7 +17,7 @@ class UIBuilder:
     # ---------------------------------------------------------
 
     def tf(self, key, label=None, hint=None, value=None, expand=True,
-           on_change=None, on_blur=None, **kw):
+           on_change=None, **kw):
         """Erzeugt ein TextField und speichert es in self.app.ui[key]."""
         field = ft.TextField(
             label=label,
@@ -28,8 +28,6 @@ class UIBuilder:
         )
         if on_change:
             field.on_change = on_change
-        if on_blur:
-            field.on_blur = on_blur
 
         self.app.ui[key] = field
         return field
@@ -48,18 +46,6 @@ class UIBuilder:
 
     def erstelle_hauptansicht(self):
         """Erstellt die Hauptansicht."""
-
-        # Statusleiste
-        status_bar = ft.Row(
-            [
-                ft.Text("Verteiler Beschriften", 
-                       weight=ft.FontWeight.BOLD, 
-                       size=16),
-                ft.Text("", size=10, color=ft.Colors.GREY_700),
-            ],
-            spacing=10,
-        )
-        self.app.ui["status_text"] = status_bar.controls[1]
 
         # Kunden-Auswahl
         dd = ft.Dropdown(
@@ -100,7 +86,7 @@ class UIBuilder:
             self.tf(
                 key,
                 label=label,
-                on_blur=self.app.on_kunde_feld_blur
+                on_change=self.app.speichere_projekt_daten
             )
 
         # Anlagen Container und RadioGroup
@@ -131,8 +117,6 @@ class UIBuilder:
 
         return ft.Column(
             [
-                status_bar,
-                ft.Divider(height=1, color=ft.Colors.GREY_400),
                 ft.Text("Aktiver Kunde:", weight=ft.FontWeight.BOLD),
                 dd,
                 nav,
@@ -146,24 +130,42 @@ class UIBuilder:
                 ft.Text("Verwaltete Anlagen:",
                         weight=ft.FontWeight.BOLD),
                 self.app.ui["anlagen_radiogroup"],
-                ft.ElevatedButton("ANLAGE BEARBEITEN",
-                                  on_click=self.app.bearbeite_ausgewaehlte_anlage,
-                                  expand=True),
-                ft.ElevatedButton("ANLAGE LÖSCHEN",
-                                  on_click=self.app.anlage_loeschen,
-                                  expand=True),
-                ft.ElevatedButton("ANLAGE HINZUFÜGEN",
-                                  on_click=self.app.anlage_hinzufuegen,
-                                  expand=True),
-                ft.ElevatedButton("KUNDE EXPORTIEREN",
-                                  on_click=self.app.exportiere_kunde_odt,
-                                  expand=True),
-                ft.ElevatedButton("ALLE KUNDEN EXPORTIEREN",
-                                  on_click=self.app.exportiere_alle_kunden,
-                                  expand=True),
-                ft.ElevatedButton("EINSTELLUNGEN",
-                                  on_click=self.app.navigiere_zu_settings,
-                                  expand=True),
+                # Zeile 1: Anlage bearbeiten - hinzufügen
+                ft.Row([
+                    ft.ElevatedButton("ANLAGE BEARBEITEN",
+                                      on_click=self.app.bearbeite_ausgewaehlte_anlage,
+                                      expand=True),
+                    ft.ElevatedButton("ANLAGE HINZUFÜGEN",
+                                      on_click=self.app.anlage_hinzufuegen,
+                                      expand=True),
+                ], spacing=5),
+                # Zeile 2: Anlage Tabellenexport - löschen
+                ft.Row([
+                    ft.ElevatedButton("ANLAGE TABELLENEXPORT",
+                                      on_click=self.app.exportiere_anlage,
+                                      expand=True),
+                    ft.ElevatedButton("ANLAGE LÖSCHEN",
+                                      on_click=self.app.anlage_loeschen,
+                                      expand=True),
+                ], spacing=5),
+                # Zeile 3: Kunde - Alle Kunden Text Export
+                ft.Row([
+                    ft.ElevatedButton("KUNDE TEXT EXPORT",
+                                      on_click=self.app.exportiere_kunde_odt,
+                                      expand=True),
+                    ft.ElevatedButton("ALLE KUNDEN TEXT EXPORT",
+                                      on_click=self.app.exportiere_alle_kunden,
+                                      expand=True),
+                ], spacing=5),
+                # Zeile 4: Einstellungen - JSON Export
+                ft.Row([
+                    ft.ElevatedButton("EINSTELLUNGEN",
+                                      on_click=self.app.navigiere_zu_settings,
+                                      expand=True),
+                    ft.ElevatedButton("ALLE DATEN JSON EXPORT",
+                                      on_click=self.app.exportiere_alle_daten_json,
+                                      expand=True),
+                ], spacing=5),
             ],
             spacing=5,
             scroll=ft.ScrollMode.AUTO,
@@ -239,20 +241,6 @@ class UIBuilder:
         editor.on_change = self.app.info_aktualisieren_und_speichern
         self.app.ui["text_editor"] = editor
 
-        export_btn = ft.ElevatedButton(
-            "📊 Exportiere & Teile ODS",
-            on_click=self.app.exportiere_anlage,
-            expand=True,
-        )
-
-        teile_btn = ft.ElevatedButton(
-            "🔗 Teile letzte ODS",
-            on_click=self.app.teile_letzte_ods,
-            disabled=True,
-            expand=True,
-        )
-        self.app.ui["teile_button"] = teile_btn
-
         return ft.Column(
             [
                 back,
@@ -279,8 +267,6 @@ class UIBuilder:
                 self.app.ui["verfuegbar_label"],
                 ft.Divider(),
                 editor,
-                export_btn,
-                teile_btn,
             ],
             spacing=5,
             scroll=ft.ScrollMode.AUTO,
@@ -365,10 +351,10 @@ class UIBuilder:
                 ft.Divider(),
                 ft.Text("Datensicherung",
                         weight=ft.FontWeight.BOLD, size=11),
-                ft.ElevatedButton("📤 Export zu Downloads",
+                ft.ElevatedButton("📤 Export zu Documents",
                                   on_click=self.app.exportiere_zu_downloads,
                                   expand=True),
-                ft.ElevatedButton("📥 Import von Downloads",
+                ft.ElevatedButton("📥 Import von Documents",
                                   on_click=self.app.importiere_von_downloads,
                                   expand=True),
                 ft.Text(
