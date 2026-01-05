@@ -131,6 +131,11 @@ class AnlagenApp:
         self.data_path.mkdir(parents=True, exist_ok=True)
         (self.data_path / "Export").mkdir(parents=True, exist_ok=True)
         (self.data_path / "Import").mkdir(parents=True, exist_ok=True)
+        
+        # Debug: Zeige tatsächlichen Pfad
+        print(f"DEBUG: data_path = {self.data_path}")
+        print(f"DEBUG: data_path exists = {self.data_path.exists()}")
+        print(f"DEBUG: Import exists = {(self.data_path / 'Import').exists()}")
 
         # Manager
         self.data_manager = DataManager(self.data_path)
@@ -398,30 +403,16 @@ class AnlagenApp:
 
     def zeige_about_dialog(self, _e):
         """Zeigt About-Dialog mit App-Informationen."""
-        dialog = ft.AlertDialog(
-            title=ft.Text("Verteiler Beschriften", weight=ft.FontWeight.BOLD),
-            content=ft.Column(
-                [
-                    ft.Text("Version 2.7.0", size=14),
-                    ft.Divider(height=10),
-                    ft.Text("Autor:", weight=ft.FontWeight.BOLD, size=12),
-                    ft.Text("Volker Heggemann", size=12),
-                    ft.Text("vohegg@gmail.com", size=12),
-                    ft.Divider(height=10),
-                    ft.Text("Copyright © 2026 Volker Heggemann", size=11),
-                    ft.Text("Alle Rechte vorbehalten", size=11),
-                    ft.Divider(height=10),
-                    ft.Text("Optimiert für Hager UZ005", size=10, italic=True),
-                    ft.Text("Beschriftungshalterungen", size=10, italic=True),
-                ],
-                tight=True,
-                spacing=5,
-            ),
-            actions=[
-                ft.TextButton("Schließen", on_click=lambda e: self.page.close(dialog))
-            ],
+        about_text = (
+            "Version 2.7.0\n\n"
+            "Autor: Volker Heggemann\n"
+            "vohegg@gmail.com\n\n"
+            "Copyright © 2026 Volker Heggemann\n"
+            "Alle Rechte vorbehalten\n\n"
+            "Optimiert für Hager UZ005\n"
+            "Beschriftungshalterungen"
         )
-        self.page.open(dialog)
+        self.dialog("Verteiler Beschriften", about_text)
     
     def zurueck_von_settings(self, _e):
         """Zurück von Settings zur Hauptansicht (ohne Detail-Daten zu speichern)."""
@@ -900,8 +891,15 @@ class AnlagenApp:
             return self.dialog("Fehler", f"Import-Ordner fehlt:\n{import_path}")
 
         json_files = list(import_path.glob("*.json"))
+        
+        # Debug: Zeige was gefunden wurde
+        all_files = list(import_path.glob("*"))
+        debug_info = f"Import-Pfad: {import_path}\n"
+        debug_info += f"Alle Dateien ({len(all_files)}): {[f.name for f in all_files]}\n"
+        debug_info += f"JSON-Dateien ({len(json_files)}): {[f.name for f in json_files]}"
+        
         if not json_files:
-            return self.dialog("Fehler", "Keine JSON-Dateien im Import-Ordner.")
+            return self.dialog("Fehler", f"Keine JSON-Dateien im Import-Ordner.\n\n{debug_info}")
 
         imported = []
 
