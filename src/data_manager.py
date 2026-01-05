@@ -101,13 +101,13 @@ class DataManager:
         """Lädt alle Kundendaten aus der JSON-Datei.
 
         Returns:
-            tuple: (alle_kunden: dict, next_kunden_id: int, next_anlage_id: int)
+            tuple: (alle_kunden: dict, next_kunden_id: int)
         """
         daten_pfad = self.get_data_file_path()
 
         if not daten_pfad.exists():
             print("Keine Daten gefunden. Starte mit leeren Daten.")
-            return {}, 1, 1
+            return {}, 1
 
         try:
             with open(daten_pfad, 'r', encoding='utf-8') as f:
@@ -115,22 +115,27 @@ class DataManager:
 
             alle_kunden = alle_daten.get('kunden', {})
             next_kunden_id = alle_daten.get('next_kunden_id', 1)
-            next_anlage_id = alle_daten.get('next_anlage_id', 1)
+            
+            # Migration: Füge next_anlage_id zu alten Kunden hinzu falls nicht vorhanden
+            for kunde_data in alle_kunden.values():
+                if 'next_anlage_id' not in kunde_data:
+                    # Finde höchste Anlagen-ID + 1
+                    max_id = max((a.get('id', 0) for a in kunde_data.get('anlagen', [])), default=0)
+                    kunde_data['next_anlage_id'] = max_id + 1
 
             print(f"Daten erfolgreich geladen: {len(alle_kunden)} Kunden")
-            return alle_kunden, next_kunden_id, next_anlage_id
+            return alle_kunden, next_kunden_id
 
         except Exception as e:
             print(f"Fehler beim Laden der Daten: {e}")
-            return {}, 1, 1
+            return {}, 1
 
-    def speichere_daten(self, alle_kunden, next_kunden_id, next_anlage_id):
+    def speichere_daten(self, alle_kunden, next_kunden_id):
         """Speichert alle Kundendaten in die JSON-Datei.
 
         Args:
             alle_kunden (dict): Dictionary mit allen Kundendaten
             next_kunden_id (int): Nächste freie Kunden-ID
-            next_anlage_id (int): Nächste freie Anlagen-ID
 
         Returns:
             tuple: (erfolg: bool, fehler_nachricht: str oder None)
@@ -143,7 +148,7 @@ class DataManager:
             alle_daten = {
                 'kunden': alle_kunden,
                 'next_kunden_id': next_kunden_id,
-                'next_anlage_id': next_anlage_id
+                # next_anlage_id nicht mehr global - ist jetzt pro Kunde
             }
 
             with open(daten_pfad, 'w', encoding='utf-8') as f:

@@ -3,6 +3,7 @@
 """Anlagen Eingabe App – Registry-Version mit Dataclasses & Optimierungen."""
 
 import os
+import json
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
@@ -56,6 +57,7 @@ class Kunde:
     telefonnummer: str = ""
     email: str = ""
     anlagen: list[Anlage] = field(default_factory=list)
+    next_anlage_id: int = 1  # Pro Kunde
 
 # ---------------------------------------------------------
 # Dict-Konvertierung
@@ -131,11 +133,6 @@ class AnlagenApp:
         self.data_path.mkdir(parents=True, exist_ok=True)
         (self.data_path / "Export").mkdir(parents=True, exist_ok=True)
         (self.data_path / "Import").mkdir(parents=True, exist_ok=True)
-        
-        # Debug: Zeige tatsächlichen Pfad
-        print(f"DEBUG: data_path = {self.data_path}")
-        print(f"DEBUG: data_path exists = {self.data_path.exists()}")
-        print(f"DEBUG: Import exists = {(self.data_path / 'Import').exists()}")
 
         # Manager
         self.data_manager = DataManager(self.data_path)
@@ -146,7 +143,6 @@ class AnlagenApp:
         self.aktiver_kunde_key = None
         self.next_kunden_id = 1
         self.anlagen_daten = []
-        self.next_anlage_id = 1
         self.aktuelle_anlage = None
         self.ausgewaehlte_anlage_id = None
         self.letzte_export_datei = None
@@ -215,28 +211,8 @@ class AnlagenApp:
     # Initialisierung
     # ---------------------------------------------------------
 
-    def pruefe_import_ordner(self):
-        import_path = self.data_path / "Import"
-        if not import_path.exists():
-            return
-
-        json_files = list(import_path.glob("*.json"))
-        if not json_files:
-            return
-
-        file = json_files[0]
-        try:
-            import shutil
-            target = self.data_path / "anlagen_daten.json"
-            shutil.copy(file, target)
-            file.unlink()
-            self.show_file_snackbar("Import erfolgreich", file.name)
-            self.dialog("Import erfolgreich", f"Daten importiert aus:\n{file.name}")
-        except Exception as e:
-            self.dialog("Import-Fehler", str(e))
-
+    
     def init_app(self):
-        self.pruefe_import_ordner()
         self.lade_daten()
         haupt = self.ui_builder.erstelle_hauptansicht()
         self.page.add(haupt)
@@ -281,7 +257,7 @@ class AnlagenApp:
 
     def lade_daten(self):
         """Lädt Daten über DataManager und konvertiert zu Dataclasses."""
-        alle_kunden_raw, self.next_kunden_id, self.next_anlage_id = self.data_manager.lade_daten()
+        alle_kunden_raw, self.next_kunden_id = self.data_manager.lade_daten()
         self.alle_kunden = {
             name: kunde_from_dict(kdict) for name, kdict in alle_kunden_raw.items()
         }
@@ -300,7 +276,7 @@ class AnlagenApp:
         out = {key: kunde_to_dict(kunde) for key, kunde in self.alle_kunden.items()}
 
         ok, fehler = self.data_manager.speichere_daten(
-            out, self.next_kunden_id, self.next_anlage_id
+            out, self.next_kunden_id
         )
         if not ok:
             self.dialog("Speicher-Fehler", fehler)
@@ -435,6 +411,8 @@ class AnlagenApp:
             self.aktualisiere_aktive_daten()
 
     def _navigiere_kunde_links(self, _e):
+        if not self.alle_kunden or not self.aktiver_kunde_key:
+            return
         keys = list(self.alle_kunden)
         idx = keys.index(self.aktiver_kunde_key)
         self.aktiver_kunde_key = keys[(idx - 1) % len(keys)]
@@ -442,6 +420,8 @@ class AnlagenApp:
         self.aktualisiere_aktive_daten()
 
     def _navigiere_kunde_rechts(self, _e):
+        if not self.alle_kunden or not self.aktiver_kunde_key:
+            return
         keys = list(self.alle_kunden)
         idx = keys.index(self.aktiver_kunde_key)
         self.aktiver_kunde_key = keys[(idx + 1) % len(keys)]
@@ -542,14 +522,16 @@ class AnlagenApp:
         if not self.aktiver_kunde_key:
             return self.dialog("Fehler", "Bitte zuerst Kunden auswählen.")
 
+        kunde = self.alle_kunden[self.aktiver_kunde_key]
+        
         neue = Anlage(
-            id=self.next_anlage_id,
-            beschreibung=f"Anlage {self.next_anlage_id}",
+            id=kunde.next_anlage_id,
+            beschreibung=f"Anlage {kunde.next_anlage_id}",
             felder=self.settings.get("default_felder", 3),
             reihen=self.settings.get("default_reihen", 7),
         )
 
-        self.next_anlage_id += 1
+        kunde.next_anlage_id += 1
         self.anlagen_daten.append(neue)
 
         self.ausgewaehlte_anlage_id = neue.id
@@ -801,15 +783,15 @@ class AnlagenApp:
             )
             self.letzte_export_datei = pfad
             self.show_file_snackbar("Exportiert", pfad.name)
-            self.dialog("Erfolg", f"ODS exportiert:\n\n{pfad}")
+            pass  # Snackbar bereits gesetzt
 
         except Exception as e:
-            self.dialog("Export-Fehler", str(e))
+            self.show_snackbar(f"Export-Fehler: {e}")
 
     def teile_letzte_ods(self, _e):
         if not self.letzte_export_datei or not self.letzte_export_datei.exists():
-            return self.dialog("Fehler", "Keine Datei gefunden.")
-        self.dialog("Info", f"Datei: {self.letzte_export_datei}")
+            return self.show_snackbar("Keine Datei gefunden")
+        self.show_snackbar(f"Datei: {self.letzte_export_datei}")
 
     def exportiere_kunde_odt(self, _e):
         if not self.aktiver_kunde_key:
@@ -825,10 +807,10 @@ class AnlagenApp:
                 self.get_export_base_path(),
             )
             self.show_file_snackbar("Exportiert", pfad.name)
-            self.dialog("Erfolg", f"ODT exportiert:\n\n{pfad}")
+            pass  # Snackbar bereits gesetzt
 
         except Exception as e:
-            self.dialog("Export-Fehler", str(e))
+            self.show_snackbar(f"Export-Fehler: {e}")
 
     def exportiere_zu_downloads(self, _e):
         """Exportiert Daten + Settings als JSON."""
@@ -869,62 +851,187 @@ class AnlagenApp:
                 count += 1
 
             self.show_file_snackbar("Exportiert", f"{count} Kunden")
-            self.dialog("Erfolg", f"{count} Kunden exportiert nach:\n{base}")
+            pass  # Snackbar bereits gesetzt
 
         except Exception as e:
-            self.dialog("Export-Fehler", str(e))
+            self.show_snackbar(f"Export-Fehler: {e}")
 
     def exportiere_alle_daten_json(self, _e):
         """Exportiert anlagen_daten.json mit Zeitstempel."""
         src = self.data_path / "anlagen_daten.json"
         if not src.exists():
-            return self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
+            return self.show_snackbar("Keine Daten zum Exportieren")
 
         dst = self.get_export_base_path() / f"anlagen_daten_{self._timestamp()}.json"
         if self._copy_file(src, dst, "Export"):
-            self.dialog("Export erfolgreich", f"Exportiert:\n{dst}")
+            pass  # Snackbar bereits gesetzt
 
-    def importiere_von_downloads(self, _e):
-        """Importiert JSON-Dateien aus /Import."""
-        import_path = self.data_path / "Import"
-        if not import_path.exists():
-            return self.dialog("Fehler", f"Import-Ordner fehlt:\n{import_path}")
-
-        json_files = list(import_path.glob("*.json"))
+    async def importiere_von_downloads(self, _e):
+        """Öffnet FilePicker für JSON-Import."""
+        files = await ft.FilePicker().pick_files(
+            allowed_extensions=["json"],
+            allow_multiple=False,
+            dialog_title="JSON-Datei zum Importieren wählen"
+        )
         
-        # Debug: Zeige was gefunden wurde
-        all_files = list(import_path.glob("*"))
-        debug_info = f"Import-Pfad: {import_path}\n"
-        debug_info += f"Alle Dateien ({len(all_files)}): {[f.name for f in all_files]}\n"
-        debug_info += f"JSON-Dateien ({len(json_files)}): {[f.name for f in json_files]}"
+        if not files:
+            return  # Abgebrochen
         
-        if not json_files:
-            return self.dialog("Fehler", f"Keine JSON-Dateien im Import-Ordner.\n\n{debug_info}")
-
-        imported = []
-
-        for file in json_files:
-            name = file.name.lower()
-            target = None
-
-            if "daten" in name or "anlagen" in name:
-                target = self.data_path / "anlagen_daten.json"
-            elif "setting" in name or "einstellung" in name:
-                target = self.data_path / "app_settings.json"
-
-            if target:
-                if self._copy_file(file, target, "Import"):
-                    imported.append(file.name)
-
-            file.unlink()
-
-        if imported:
-            self.settings = self.data_manager.lade_settings()
+        file_path = Path(files[0].path)
+        await self.process_import_file(file_path)
+    
+    async def process_import_file(self, file_path):
+        """Verarbeitet ausgewählte Import-Datei."""
+        file_name = file_path.name.lower()
+        
+        # Snackbar: Prüfung gestartet
+        self.show_snackbar(f"Prüfe Datei: {file_path.name}")
+        
+        # 1. Validiere Dateinamen
+        is_daten = "daten" in file_name or "anlagen" in file_name
+        is_settings = "setting" in file_name or "einstellung" in file_name
+        
+        if not (is_daten or is_settings):
+            return self.dialog("Ungültige Datei", 
+                             "Die Datei muss 'daten'/'anlagen' oder 'settings'/'einstellung' im Namen enthalten.")
+        
+        # 2. Lade und validiere JSON
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                import_data = json.load(f)
+        except Exception as ex:
+            return self.show_snackbar(f"Datei-Fehler: {ex}")
+        
+        # 3. Settings-Import (immer ohne Prüfung)
+        if is_settings:
+            target = self.data_path / "app_settings.json"
+            if self._copy_file(file_path, target, "Import"):
+                self.settings = self.data_manager.lade_settings()
+                self.show_snackbar("Einstellungen importiert")
+                return  # Snackbar bereits gesetzt
+            else:
+                return self.show_snackbar("Einstellungen-Import fehlgeschlagen")
+        
+        # 4. Daten-Import mit Vergleich
+        if is_daten:
+            self._import_daten_mit_vergleich(file_path, import_data)
+    
+    def _import_daten_mit_vergleich(self, file_path, import_data):
+        """Importiert Daten mit Vergleich und Merge-Option."""
+        # Zähle Import-Daten
+        import_kunden = len(import_data.get('alle_kunden', {}))
+        import_anlagen = sum(len(k.get('anlagen', [])) for k in import_data.get('alle_kunden', {}).values())
+        
+        # Zähle aktuelle Daten
+        aktuelle_kunden = len(self.alle_kunden)
+        aktuelle_anlagen = sum(len(k.anlagen) for k in self.alle_kunden.values())
+        
+        # Prüfe ob Merge möglich (unterschiedliche Kunden)
+        import_kunde_keys = set(import_data.get('alle_kunden', {}).keys())
+        aktuelle_kunde_keys = set(self.alle_kunden.keys())
+        neue_kunden = import_kunde_keys - aktuelle_kunde_keys
+        
+        merge_moeglich = len(neue_kunden) > 0
+        
+        # Vergleich
+        if import_kunden < aktuelle_kunden or import_anlagen < aktuelle_anlagen:
+            # Weniger Daten
+            msg = f"Wir haben hier schon mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nTrotzdem importieren?"
+            if merge_moeglich:
+                msg += f"\n\nODER: {len(neue_kunden)} neue Kunden mergen?"
+                self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
+            else:
+                self._confirm_import_dialog(msg, file_path, False, None, import_data)
+        elif import_kunden == aktuelle_kunden and import_anlagen == aktuelle_anlagen:
+            # Gleiche Daten
+            msg = f"Die Daten sind gleich:\n\n{aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\n\nTrotzdem importieren?"
+            self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
+        else:
+            # Mehr Daten - direkt importieren
+            if merge_moeglich:
+                msg = f"Import enthält mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nImportieren oder {len(neue_kunden)} neue Kunden mergen?"
+                self._confirm_import_dialog(msg, file_path, True, neue_kunden, import_data)
+            else:
+                self._do_import(file_path)
+    
+    def _confirm_import_dialog(self, message, file_path, merge_moeglich, neue_kunden, import_data):
+        """Zeigt Bestätigungs-Dialog mit Import/Merge-Optionen."""
+        def on_import(e):
+            dlg.open = False
+            self.page.update()
+            self._do_import(file_path)
+        
+        def on_merge(e):
+            dlg.open = False
+            self.page.update()
+            self._do_merge(neue_kunden, import_data)
+        
+        def on_cancel(e):
+            dlg.open = False
+            self.page.update()
+            self.show_snackbar("Import abgebrochen")
+        
+        actions = [
+            ft.TextButton("Importieren", on_click=on_import),
+        ]
+        
+        if merge_moeglich:
+            actions.insert(0, ft.TextButton("Mergen", on_click=on_merge))
+        
+        actions.append(ft.TextButton("Abbrechen", on_click=on_cancel))
+        
+        dlg = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Import-Optionen"),
+            content=ft.Text(message),
+            actions=actions,
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
+    
+    def _do_import(self, file_path):
+        """Führt Import durch (überschreibt alles)."""
+        target = self.data_path / "anlagen_daten.json"
+        if self._copy_file(file_path, target, "Import"):
             self.lade_daten()
             self.aktualisiere_aktive_daten()
-            self.dialog("Import erfolgreich", "Importiert:\n" + "\n".join(imported))
+            self.refresh_main()  # UI aktualisieren!
+            self.show_snackbar("Daten importiert")
+            pass  # Snackbar bereits gesetzt
         else:
-            self.dialog("Fehler", "Keine passenden JSON-Dateien gefunden.")
+            self.show_snackbar("Daten-Import fehlgeschlagen")
+    
+    def _do_merge(self, neue_kunde_keys, import_data):
+        """Führt Merge durch (nur neue Kunden hinzufügen)."""
+        import_kunden = import_data.get('alle_kunden', {})
+        
+        merged_count = 0
+        for kunde_key in neue_kunde_keys:
+            if kunde_key in import_kunden:
+                # Konvertiere zu Dataclass
+                kunde_raw = import_kunden[kunde_key]
+                kunde = Kunde(**kunde_raw)
+                kunde.anlagen = [Anlage(**a) for a in kunde_raw.get('anlagen', [])]
+                self.alle_kunden[kunde_key] = kunde
+                merged_count += 1
+        
+        if merged_count > 0:
+            self.speichere_daten()
+            self.aktualisiere_aktive_daten()
+            self.refresh_main()  # UI aktualisieren!
+            self.show_snackbar(f"{merged_count} Kunden gemergt")
+            self.dialog("Merge erfolgreich", f"{merged_count} neue Kunden wurden hinzugefügt.")
+        else:
+            self.show_snackbar("Keine neuen Kunden gefunden")
+    
+    def show_snackbar(self, message):
+        """Zeigt Snackbar-Nachricht."""
+        self.page.snack_bar = ft.SnackBar(ft.Text(message))
+        self.page.snack_bar.open = True
+        self.page.update()
 
     # ---------------------------------------------------------
     # Settings (optimiert)
