@@ -86,10 +86,13 @@ class UIBuilder:
         # Kunde Input
         self.tf("kunde_input", hint="Kundenname")
 
-        # Projektdaten
+        # Projektdaten - Datum-Label abhängig vom Format
+        datum_format = self.app.settings.get("datum_format", "DE")
+        datum_label = "Datum (TT.MM.JJJJ)" if datum_format == "DE" else "Datum (JJJJ-MM-TT)"
+        
         projektfelder = {
             "kunde_projekt": "Projektname",
-            "kunde_datum": "Datum (JJJJ-MM-TT)",
+            "kunde_datum": datum_label,
             "kunde_adresse": "Adresse",
             "kunde_plz": "PLZ",
             "kunde_ort": "Ort",
@@ -338,10 +341,10 @@ class UIBuilder:
         datum_dropdown = ft.Dropdown(
             label="Datumsformat",
             options=[
-                ft.dropdown.Option("ISO", "ISO (YYYY-MM-DD)"),
-                ft.dropdown.Option("DE", "Deutsch (DD.MM.YYYY)"),
-                ft.dropdown.Option("EN", "Englisch (MM/DD/YYYY)"),
-                ft.dropdown.Option("SHORT", "Kurz (DD.MM.YY)"),
+                ft.dropdown.Option("ISO", "ISO (JJJJ-MM-TT)"),
+                ft.dropdown.Option("DE", "Deutsch (TT.MM.JJJJ)"),
+                ft.dropdown.Option("EN", "Englisch (MM/TT/JJJJ)"),
+                ft.dropdown.Option("SHORT", "Kurz (TT.MM.JJ)"),
             ],
             value=self.app.settings.get("datum_format", "DE"),
         )

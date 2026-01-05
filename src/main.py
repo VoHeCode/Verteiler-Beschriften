@@ -173,11 +173,13 @@ class AnlagenApp:
         self.page.show_dialog(dlg)
 
     def show_file_snackbar(self, action, filename):
-        snackbar = ft.SnackBar(
-            content=ft.Text(f"{action}: {filename}"),
-            duration=4000,
+        """Zeigt Snackbar für Dateioperationen."""
+        self.page.snack_bar = ft.SnackBar(
+            ft.Text(f"{action}: {filename}"),
+            duration=4000  # 4 Sekunden
         )
-        self.page.show_dialog(snackbar)
+        self.page.snack_bar.open = True
+        self.page.update()
 
     def update_status(self, text=""):
         if "status_text" in self.ui:
@@ -489,30 +491,14 @@ class AnlagenApp:
 
     def kunde_loeschen(self, _e):
         if not self.aktiver_kunde_key:
-            return self.dialog("Fehler", "Kein Kunde ausgewählt.")
-
-        def confirm(e):
-            dlg.open = False
-            self.page.update()
-            if e.control.text == "Ja":
-                del self.alle_kunden[self.aktiver_kunde_key]
-                self.aktiver_kunde_key = next(iter(self.alle_kunden), None)
-                self.ui["kunden_auswahl"].options = [
-                    ft.dropdown.Option(k) for k in self.alle_kunden
-                ]
-                self.ui["kunden_auswahl"].value = self.aktiver_kunde_key
-                self.aktualisiere_aktive_daten()
-                self.daten_dirty = True
-                self.speichere_daten()
-
-        dlg = ft.AlertDialog(
-            title=ft.Text("Kunde löschen"),
-            content=ft.Text(f'Wirklich Kunde "{self.aktiver_kunde_key}" löschen?'),
-            actions=[ft.TextButton("Ja", on_click=confirm), ft.TextButton("Nein", on_click=confirm)],
-        )
-        self.page.dialog = dlg
-        dlg.open = True
-        self.page.update()
+            return
+        
+        del self.alle_kunden[self.aktiver_kunde_key]
+        self.aktiver_kunde_key = next(iter(self.alle_kunden), None)
+        self.daten_dirty = True
+        self.speichere_daten()
+        self.refresh_main()
+        self.aktualisiere_aktive_daten()  # Daten in Felder laden
 
     # ---------------------------------------------------------
     # Anlagen (Teil 1)
@@ -1029,7 +1015,10 @@ class AnlagenApp:
     
     def show_snackbar(self, message):
         """Zeigt Snackbar-Nachricht."""
-        self.page.snack_bar = ft.SnackBar(ft.Text(message))
+        self.page.snack_bar = ft.SnackBar(
+            ft.Text(message),
+            duration=4000  # 4 Sekunden
+        )
         self.page.snack_bar.open = True
         self.page.update()
 
@@ -1039,6 +1028,9 @@ class AnlagenApp:
 
     def auto_speichere_settings(self, _e):
         """Speichert alle Settings generisch über ein Mapping."""
+        # Merke altes Datumsformat
+        old_format = self.settings.get("datum_format", "DE")
+        
         mapping = {
             "settings_felder_input": ("default_felder", int),
             "settings_reihen_input": ("default_reihen", int),
@@ -1083,6 +1075,11 @@ class AnlagenApp:
                 self.data_manager.speichere_settings(self.settings)
             except (OSError, ValueError, TypeError):
                 pass
+            
+            # Wenn Datumsformat geändert wurde, refresh main view
+            new_format = self.settings.get("datum_format", "DE")
+            if old_format != new_format:
+                self.refresh_main()
 
         except (OSError, ValueError, TypeError):
             pass
