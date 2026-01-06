@@ -8,7 +8,7 @@ Wir nutzen einfach normale Dateisystem-Operationen.
 
 from pathlib import Path
 import shutil
-from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
+from constants import EXPORT_DATA_FILE, EXPORT_SETTINGS_FILE
 
 
 def exportiere_zu_downloads(data_manager):
@@ -29,16 +29,16 @@ def exportiere_zu_downloads(data_manager):
         # Exportiere Daten
         daten_pfad = data_manager.get_data_file_path()
         if daten_pfad.exists():
-            ziel = downloads / EXPORT_DATEN_DATEI
+            ziel = downloads / EXPORT_DATA_FILE
             shutil.copy2(daten_pfad, ziel)
-            exportierte_dateien.append(f"✓ {EXPORT_DATEN_DATEI}")
+            exportierte_dateien.append(f"✓ {EXPORT_DATA_FILE}")
         
         # Exportiere Settings
         settings_pfad = data_manager.get_settings_file_path()
         if settings_pfad.exists():
-            ziel = downloads / EXPORT_SETTINGS_DATEI
+            ziel = downloads / EXPORT_SETTINGS_FILE
             shutil.copy2(settings_pfad, ziel)
-            exportierte_dateien.append(f"✓ {EXPORT_SETTINGS_DATEI}")
+            exportierte_dateien.append(f"✓ {EXPORT_SETTINGS_FILE}")
         
         if not exportierte_dateien:
             return False, [], "Keine Dateien zum Exportieren gefunden"
@@ -62,17 +62,17 @@ def importiere_von_downloads(data_manager):
         downloads = Path.home() / "Downloads"
         importierte_dateien = []
         
-        # Importiere Daten
-        daten_quelle = downloads / EXPORT_DATEN_DATEI
+        # Importiere EXPORT_DATA_FILE
+        daten_quelle = downloads / EXPORT_DATA_FILE
         if daten_quelle.exists():
             shutil.copy2(daten_quelle, data_manager.get_data_file_path())
-            importierte_dateien.append(f"✓ {EXPORT_DATEN_DATEI}")
+            importierte_dateien.append(f"✓ {EXPORT_DATA_FILE}")
         
         # Importiere Settings
-        settings_quelle = downloads / EXPORT_SETTINGS_DATEI
+        settings_quelle = downloads / EXPORT_SETTINGS_FILE
         if settings_quelle.exists():
             shutil.copy2(settings_quelle, data_manager.get_settings_file_path())
-            importierte_dateien.append(f"✓ {EXPORT_SETTINGS_DATEI}")
+            importierte_dateien.append(f"✓ {EXPORT_SETTINGS_FILE}")
         
         if not importierte_dateien:
             return False, [], "Keine Backup-Dateien im Downloads-Ordner gefunden"

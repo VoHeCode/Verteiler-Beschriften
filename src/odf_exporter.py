@@ -16,7 +16,7 @@ from pathlib import Path
 from ods_manual import create_ods_manual
 from odt_manual import create_odt_manual
 
-from constants import SPALTEN_PRO_EINHEIT
+from constants import COLUMNS_PER_UNIT
 
 
 def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
@@ -49,7 +49,7 @@ def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
             beschr_cells = []
             temp_spalte_nr = globale_spalten_start
             
-            for i in range(SPALTEN_PRO_EINHEIT):
+            for i in range(COLUMNS_PER_UNIT):
                 beschr_cells.append({
                     'text': str(temp_spalte_nr + i),
                     'style': 'ce1',
@@ -65,7 +65,7 @@ def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
             inhalt_cells = []
             lokale_spalten_zaehler = 0
             
-            while lokale_spalten_zaehler < SPALTEN_PRO_EINHEIT:
+            while lokale_spalten_zaehler < COLUMNS_PER_UNIT:
                 globale_spalten_nr = globale_spalten_start + lokale_spalten_zaehler
                 
                 if globale_spalten_nr in spalten_map:
@@ -73,7 +73,7 @@ def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
                     anzahl = eintrag['anzahl']
                     anzahl_in_reihe = min(
                         anzahl,
-                        SPALTEN_PRO_EINHEIT - lokale_spalten_zaehler
+                        COLUMNS_PER_UNIT - lokale_spalten_zaehler
                     )
                     
                     inhalt_cells.append({
@@ -96,11 +96,11 @@ def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
                 'cells': inhalt_cells
             })
             
-            globale_spalten_start += SPALTEN_PRO_EINHEIT
+            globale_spalten_start += COLUMNS_PER_UNIT
     
     return {
         'name': anlage['beschreibung'],
-        'num_cols': SPALTEN_PRO_EINHEIT,
+        'num_cols': COLUMNS_PER_UNIT,
         'rows': rows
     }
 
@@ -169,7 +169,7 @@ def validiere_eintraege(text_inhalt, felder, reihen):
         tuple: (is_valid: bool, gueltige_eintraege: list, fehler_anzahl: int,
                 belegte_spalten: set, max_spalten: int)
     """
-    max_spalten = felder * reihen * SPALTEN_PRO_EINHEIT
+    max_spalten = felder * reihen * COLUMNS_PER_UNIT
     belegte_spalten = set()
     fehler_anzahl = 0
     gueltige_eintraege = []

@@ -229,7 +229,7 @@ class DataManager:
         Returns:
             tuple: (erfolg: bool, exportierte_dateien: list, fehler: str oder None)
         """
-        from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
+        from constants import EXPORT_DATA_FILE, EXPORT_SETTINGS_FILE
         import shutil
 
         ziel_verzeichnis = Path(ziel_verzeichnis)
@@ -239,14 +239,14 @@ class DataManager:
             # Kopiere Daten-Datei
             daten_quelle = self.get_data_file_path()
             if daten_quelle.exists():
-                daten_ziel = ziel_verzeichnis / EXPORT_DATEN_DATEI
+                daten_ziel = ziel_verzeichnis / EXPORT_DATA_FILE
                 shutil.copy2(daten_quelle, daten_ziel)
                 exportierte_dateien.append(f"✓ {daten_ziel}")
 
             # Kopiere Settings-Datei
             settings_quelle = self.get_settings_file_path()
             if settings_quelle.exists():
-                settings_ziel = ziel_verzeichnis / EXPORT_SETTINGS_DATEI
+                settings_ziel = ziel_verzeichnis / EXPORT_SETTINGS_FILE
                 shutil.copy2(settings_quelle, settings_ziel)
                 exportierte_dateien.append(f"✓ {settings_ziel}")
 
@@ -264,7 +264,7 @@ class DataManager:
         Returns:
             tuple: (erfolg: bool, importierte_dateien: list, fehler: str oder None)
         """
-        from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
+        from constants import EXPORT_DATA_FILE, EXPORT_SETTINGS_FILE
         import shutil
 
         quell_verzeichnis = Path(quell_verzeichnis)
@@ -272,7 +272,7 @@ class DataManager:
 
         try:
             daten_quelle = quell_verzeichnis / EXPORT_DATEN_DATEI
-            settings_quelle = quell_verzeichnis / EXPORT_SETTINGS_DATEI
+            settings_quelle = quell_verzeichnis / EXPORT_SETTINGS_FILE
 
             # Importiere Daten
             if daten_quelle.exists():
@@ -284,7 +284,7 @@ class DataManager:
             if settings_quelle.exists():
                 settings_ziel = self.get_settings_file_path()
                 shutil.copy2(settings_quelle, settings_ziel)
-                importierte_dateien.append(f"✓ {EXPORT_SETTINGS_DATEI}")
+                importierte_dateien.append(f"✓ {EXPORT_SETTINGS_FILE}")
 
             if not importierte_dateien:
                 return False, [], "Keine Dateien gefunden"

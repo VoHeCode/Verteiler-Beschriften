@@ -12,7 +12,7 @@ DATEINAME = 'anlagen_daten.json'
 SETTINGS_DATEINAME = 'app_settings.json'
 
 # Layout-Konstanten
-SPALTEN_PRO_EINHEIT = 12
+COLUMNS_PER_UNIT = 12
 
 # Standard-Einstellungen (als Referenz für neue Installationen)
 DEFAULT_SETTINGS = {
@@ -39,5 +39,5 @@ DEFAULT_SETTINGS = {
 CREATE_FILE_REQUEST = 1
 
 # Export-Dateinamen
-EXPORT_DATEN_DATEI = 'Verteiler_Daten.json'
-EXPORT_SETTINGS_DATEI = 'Verteiler_Einstellungen.json'
+EXPORT_DATA_FILE = 'Verteiler_Daten.json'
+EXPORT_SETTINGS_FILE = 'Verteiler_Einstellungen.json'

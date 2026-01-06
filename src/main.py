@@ -10,7 +10,7 @@ from pathlib import Path
 from date_utils import parse_date_input, format_date_display
 import flet as ft
 
-from constants import APP_VERSION, APP_NAME, SPALTEN_PRO_EINHEIT
+from constants import APP_VERSION, APP_NAME, COLUMNS_PER_UNIT
 from data_manager import DataManager
 from ui_builder import UIBuilder
 from odf_exporter import (
@@ -738,7 +738,7 @@ class AnlagenApp:
 
         self.ui["info_label"].value = (
             f"Gesamt-Spalten: {self.aktuelle_anlage.felder} × "
-            f"{self.aktuelle_anlage.reihen} × {SPALTEN_PRO_EINHEIT} = "
+            f"{self.aktuelle_anlage.reihen} × {COLUMNS_PER_UNIT} = "
             f"{info['max_spalten']}"
         )
 
