@@ -91,6 +91,10 @@ class AnlagenApp:
         self.page.title = f"{APP_NAME} V{APP_VERSION}"
         self.page.scroll = ft.ScrollMode.AUTO
         self.page.theme_mode = ft.ThemeMode.LIGHT
+        
+        # Android: Padding für System-Overlays
+        if os.getenv("FLET_APP_STORAGE_DATA"):
+            self.page.padding = ft.padding.only(top=25, bottom=25)
 
         self.ui = {}
 
@@ -305,9 +309,13 @@ class AnlagenApp:
 
         current = e.control.value or ""
 
-        # ⭐ Datumsfeld → immer ISO speichern
+        # ⭐ Datumsfeld → immer ISO speichern, dann User-Format anzeigen
         if field_key == "kunde_datum":
-            current = parse_date_input(current)
+            iso_datum = parse_date_input(current)
+            current = iso_datum
+            # Zeige wieder im User-Format
+            fmt = self.settings.get("datum_format", "DE")
+            e.control.value = format_date_display(iso_datum, fmt)
 
         original = self.original_kunde_values[field_key]
 
@@ -495,10 +503,16 @@ class AnlagenApp:
         
         del self.alle_kunden[self.aktiver_kunde_key]
         self.aktiver_kunde_key = next(iter(self.alle_kunden), None)
+        
         self.daten_dirty = True
         self.speichere_daten()
+        
+        # Komplette UI neu aufbauen
         self.refresh_main()
-        self.aktualisiere_aktive_daten()  # Daten in Felder laden
+        
+        # Falls noch Kunden da sind, deren Daten laden
+        if self.aktiver_kunde_key:
+            self.aktualisiere_aktive_daten()
 
     # ---------------------------------------------------------
     # Anlagen (Teil 1)
@@ -1080,6 +1094,12 @@ class AnlagenApp:
             new_format = self.settings.get("datum_format", "DE")
             if old_format != new_format:
                 self.refresh_main()
+                # Datum im neuen Format anzeigen
+                if self.aktiver_kunde_key and "kunde_datum" in self.ui:
+                    kunde = self.alle_kunden[self.aktiver_kunde_key]
+                    iso = getattr(kunde, "datum", "")
+                    self.ui["kunde_datum"].value = format_date_display(iso, new_format)
+                    self.page.update()
 
         except (OSError, ValueError, TypeError):
             pass
