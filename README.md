@@ -43,7 +43,16 @@ flet run main.py --web
 
 # Für Android bauen
 flet build apk
+
+# Für Linux bauen
+flet build linux
+
+# AppImage erstellen
+# aus dem Projektordner
+./MakeAppImage.sh 
+
 ```
+
 
 ## 📝 Features
 
