@@ -1,6 +1,6 @@
 [project]
 name = "Verteiler Beschriften"
-version = "2.7.0"
+version = "2.9.0"
 description = "Anlagen Eingabe und Verteiler-Beschriftung"
 authors = [
     {name = "Volker Heggemann", email = "vohegg@gmail.com"}

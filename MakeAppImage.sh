@@ -55,22 +55,22 @@ if [ -d "$PROJECT_DIR/src/assets" ]; then
 fi
 
 # AppRun erzeugen
-cat << EOF > "$APPDIR/AppRun"
+cat << APPRUN_EOF > "$APPDIR/AppRun"
 #!/bin/bash
 HERE="\$(dirname "\$(readlink -f "\$0")")"
 exec "\$HERE/usr/bin/$APPNAME_LOWER"
-EOF
+APPRUN_EOF
 chmod +x "$APPDIR/AppRun"
 
 # Desktop-Datei erzeugen
-cat << EOF > "$APPDIR/$APPNAME.desktop"
+cat << DESKTOP_EOF > "$APPDIR/$APPNAME.desktop"
 [Desktop Entry]
 Name=$APPNAME
 Exec=$APPNAME_LOWER
 Icon=$APPNAME
 Type=Application
 Categories=Utility;
-EOF
+DESKTOP_EOF
 
 # Icon nur kopieren, wenn vorhanden
 if [ -n "$ICON" ]; then
@@ -86,3 +86,9 @@ fi
 
 # AppImage bauen
 "$PROJECT_DIR/appimagetool-x86_64.AppImage" "$APPDIR"
+
+# Cleanup: AppDir entfernen
+echo "Cleanup: Entferne temporäres AppDir..."
+rm -rf "$APPDIR"
+
+echo "Fertig! AppImage wurde erstellt."
