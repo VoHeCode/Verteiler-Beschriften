@@ -439,10 +439,20 @@ def create_content_xml(data, settings, NS, footer_data=None):
                                     attrib={f'{{{NS["text"]}}}style-name': 'T1'})
                 span.text = WATERMARK_TEXT
             
-            # Text
+            # Text mit Zeilenumbruch-Unterstützung
             if cell_data.get('text'):
-                p = ET.SubElement(cell, f'{{{NS["text"]}}}p')
-                p.text = cell_data['text']
+                cell_text = cell_data['text']
+                linebreak_char = settings.get('linebreak_char', ';')
+                
+                # Wenn linebreak_char im Text vorkommt, mehrere <text:p> erstellen
+                if linebreak_char and linebreak_char in cell_text:
+                    lines = cell_text.split(linebreak_char)
+                    for line in lines:
+                        p = ET.SubElement(cell, f'{{{NS["text"]}}}p')
+                        p.text = line.strip()
+                else:
+                    p = ET.SubElement(cell, f'{{{NS["text"]}}}p')
+                    p.text = cell_text
             
             # Covered cells nach merged cell
             for _ in range(cell_data.get('colspan', 1) - 1):

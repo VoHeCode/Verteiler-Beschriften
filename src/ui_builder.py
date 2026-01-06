@@ -350,6 +350,14 @@ class UIBuilder:
         )
         datum_dropdown.on_change = self.app.auto_speichere_settings
         self.app.ui["settings_datum_format"] = datum_dropdown
+        
+        # Linebreak-Zeichen
+        self.tf(
+            "settings_linebreak_input",
+            label="Zeichen für neue Zeile (max 3)",
+            on_blur=self.app.auto_speichere_settings
+        )
+        self.app.ui["settings_linebreak_input"].value = self.app.settings.get("linebreak_char", ";")
 
         return ft.Column(
             [
@@ -362,6 +370,7 @@ class UIBuilder:
                 self.app.ui["settings_felder_input"],
                 self.app.ui["settings_reihen_input"],
                 self.app.ui["settings_datum_format"],
+                self.app.ui["settings_linebreak_input"],
                 ft.Divider(),
                 ft.Text("Schriftgrößen",
                         weight=ft.FontWeight.BOLD, size=11),

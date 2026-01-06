@@ -25,6 +25,7 @@ DEFAULT_SETTINGS = {
     'beschriftung_row_hoehe': 0.5,  # in cm
     'inhalt_row_hoehe': 1.5,  # in cm
     'zellen_umrandung': True,  # Umrandung aktiviert
+    'linebreak_char': ';',  # Zeichen für neue Zeile (max 3 Zeichen)
     # Page Layout Einstellungen
     'seite_breite': 29.7,  # A4 Querformat Breite in cm
     'seite_hoehe': 21.0,  # A4 Querformat Höhe in cm

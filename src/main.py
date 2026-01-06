@@ -1069,6 +1069,13 @@ class AnlagenApp:
         str_mapping = {
             "settings_datum_format": "datum_format",
         }
+        
+        # Spezielle Behandlung für linebreak_char (max 3 Zeichen)
+        if "settings_linebreak_input" in self.ui:
+            linebreak = self.ui["settings_linebreak_input"].value or ";"
+            linebreak = linebreak[:3]  # Maximal 3 Zeichen
+            self.settings["linebreak_char"] = linebreak
+            self.ui["settings_linebreak_input"].value = linebreak  # Zurücksetzen falls zu lang
 
         try:
             for ui_key, (setting_key, cast) in mapping.items():
