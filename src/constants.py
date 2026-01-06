@@ -3,7 +3,7 @@
 """Konstanten und Konfiguration für die Anlagen-App."""
 
 # App-Informationen
-APP_VERSION = '2.3.4'
+APP_VERSION = '2.8.5'
 APP_NAME = 'Anlagen Eingabe'
 APP_ID = 'com.beispiel.anlageneingabe'
 

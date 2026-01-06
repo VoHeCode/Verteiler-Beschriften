@@ -92,8 +92,11 @@ class AnlagenApp:
         self.page.scroll = ft.ScrollMode.AUTO
         self.page.theme_mode = ft.ThemeMode.LIGHT
         
-        # Android: Padding für System-Overlays
-        if os.getenv("FLET_APP_STORAGE_DATA"):
+        # Ermittle is_mobile direkt aus page.platform
+        self.is_mobile = self.page.platform in [ft.PagePlatform.ANDROID, ft.PagePlatform.IOS]
+        
+        # Mobile: Padding für System-Overlays
+        if self.is_mobile:
             self.page.padding = ft.padding.only(top=25, bottom=25)
 
         self.ui = {}
@@ -126,8 +129,7 @@ class AnlagenApp:
         }
 
         # Datenpfad
-        storage = os.getenv("FLET_APP_STORAGE_DATA")
-        if storage:
+        if self.is_mobile:
             self.data_path = Path("/storage/emulated/0/Documents/Verteiler_Beschriften")
         else:
             docs_de = Path.home() / "Dokumente" / "Verteiler_Beschriften"
