@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Anlagen Eingabe App – Registry-Version mit Dataclasses & Optimierungen."""
+# Verteiler Beschriften
 
 import os
 import json

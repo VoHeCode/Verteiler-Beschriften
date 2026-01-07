@@ -1,7 +1,8 @@
 [project]
-name = "Verteiler Beschriften"
-version = "2.7.0"
-description = "Anlagen Eingabe und Verteiler-Beschriftung"
+description = "Verteiler verwalten und beschriften"
+authors = [
+    {name = "Volker Heggemann", email = "vohegg@gmail.com"}
+]
 requires-python = ">=3.8"
 license-files = [
     "LICENSE",
@@ -12,13 +13,13 @@ dependencies = [
 
 [project.optional-dependencies]
 desktop = [
-    "odfpy",  # ODS/ODT Export für Desktop
+    # Keine zusätzlichen Desktop-Dependencies - nutzt manuelle ODS-Erstellung
 ]
 
 [tool.flet]
-name = "Verteiler_beschriften"
-description = "Anlagen Eingabe und Verteiler-Beschriftung"
-version = "2.3.4"
+name = "Verteiler_Beschriften"
+description = "Verteiler verwalten und beschriften"
+version = "2.9.5"
 
 [tool.flet.app]
 path = "src"
@@ -31,4 +32,5 @@ assets = ["assets"]
 permissions = [
     "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WRITE_EXTERNAL_STORAGE",
+    "android.permission.MANAGE_EXTERNAL_STORAGE",
 ]

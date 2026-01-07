@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 WATERMARK_TEXT = "Verteiler-Beschriften - (C)2026 vohegg@gmail.com"
-WATERMARK_COLOR = "#666666"  # Dunkelgrau zum Testen
+WATERMARK_COLOR = "#AAAAAA"  # Hellgrau
 def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
     
