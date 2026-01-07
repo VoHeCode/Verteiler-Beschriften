@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 """Konstanten und Konfiguration für die Anlagen-App."""
 
-# App-Informationen
-APP_VERSION = '2.9.0'
-APP_NAME = 'Anlagen Eingabe'
-APP_ID = 'com.beispiel.anlageneingabe'
+# SYNC WITH pyproject.toml [tool.flet]
+TOOL_FLET_NAME = "Verteiler_Beschriften"
+TOOL_FLET_VERSION = "2.9.5"
+TOOL_FLET_DESCRIPTION = "Anlagen Eingabe und Verteiler-Beschriftung"
+
+# App-ID für Android Package
+APP_ID = "com.vohegg.verteiler_beschriften"
 
 # Dateinamen
 DATEINAME = 'anlagen_daten.json'
@@ -39,5 +42,5 @@ DEFAULT_SETTINGS = {
 CREATE_FILE_REQUEST = 1
 
 # Export-Dateinamen
-EXPORT_DATA_FILE = 'Verteiler_Daten.json'
+EXPORT_DATA_FILE = '../../../../Downloads/Verteiler_Daten.json'
 EXPORT_SETTINGS_FILE = 'Verteiler_Einstellungen.json'

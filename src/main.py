@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Verteiler Beschriften
+"""Anlagen Eingabe App – Registry-Version mit Dataclasses & Optimierungen."""
 
 import os
 import json
@@ -10,7 +10,7 @@ from pathlib import Path
 from date_utils import parse_date_input, format_date_display
 import flet as ft
 
-from constants import APP_VERSION, APP_NAME, COLUMNS_PER_UNIT
+from constants import TOOL_FLET_VERSION, TOOL_FLET_NAME, COLUMNS_PER_UNIT
 from data_manager import DataManager
 from ui_builder import UIBuilder
 from odf_exporter import (
@@ -88,7 +88,7 @@ class AnlagenApp:
 
     def __init__(self, page: ft.Page):
         self.page = page
-        self.page.title = f"{APP_NAME} V{APP_VERSION}"
+        self.page.title = f"{TOOL_FLET_NAME} V{TOOL_FLET_VERSION}"
         self.page.scroll = ft.ScrollMode.AUTO
         self.page.theme_mode = ft.ThemeMode.LIGHT
         
