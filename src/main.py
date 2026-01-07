@@ -180,11 +180,18 @@ class AnlagenApp:
 
     def show_file_snackbar(self, action, filename):
         """Zeigt Snackbar für Dateioperationen."""
-        self.page.snack_bar = ft.SnackBar(
-            ft.Text(f"{action}: {filename}"),
+        # Vollständiger Pfad für Datendateien
+        if filename == "anlagen_daten.json" or filename == "app_settings.json":
+            filepath = str(self.data_path / filename)
+        else:
+            filepath = filename
+            
+        snackbar = ft.SnackBar(
+            content=ft.Text(f"{action}: {filepath}"),
             duration=4000  # 4 Sekunden
         )
-        self.page.snack_bar.open = True
+        self.page.overlay.append(snackbar)
+        snackbar.open = True
         self.page.update()
 
     def update_status(self, text=""):
@@ -202,7 +209,7 @@ class AnlagenApp:
             self.show_file_snackbar("Exportiert", dst.name)
             return True
         except Exception as e:
-            self.dialog(f"{label}-Fehler", str(e))
+            self.show_snackbar(f"{label}-Fehler: {e}")
             return False
 
     def map_set_obj(self, mapping, obj):
@@ -287,7 +294,7 @@ class AnlagenApp:
             out, self.next_kunden_id
         )
         if not ok:
-            self.dialog("Speicher-Fehler", fehler)
+            self.show_snackbar(f"Speicher-Fehler: {fehler}")
         else:
             self.daten_dirty = False
             self.show_file_snackbar("Gespeichert", "anlagen_daten.json")
@@ -329,6 +336,7 @@ class AnlagenApp:
             self.original_kunde_values[field_key] = current
             self.daten_dirty = True
             self.speichere_daten()
+            self.show_file_snackbar("Gespeichert", "anlagen_daten.json")
 
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
@@ -363,7 +371,7 @@ class AnlagenApp:
         if view_name == "main":
             view = self.ui_builder.erstelle_hauptansicht()
             self.show(view)
-            self.aktualisiere_anlagen_tabelle()
+            self.aktualisiere_aktive_daten()  # Kundendaten laden!
             return
 
         if view_name == "detail":
@@ -421,6 +429,7 @@ class AnlagenApp:
         if key in self.alle_kunden:
             self.aktiver_kunde_key = key
             self.aktualisiere_aktive_daten()
+            self.page.update()
 
     def _navigiere_kunde_links(self, _e):
         if not self.alle_kunden or not self.aktiver_kunde_key:
@@ -553,21 +562,15 @@ class AnlagenApp:
         if not anlage:
             return self.dialog("Fehler", "Anlage nicht gefunden.")
 
-        def do_delete():
-            self.anlagen_daten = [
-                a for a in self.anlagen_daten if a.id != self.ausgewaehlte_anlage_id
-            ]
-            self.alle_kunden[self.aktiver_kunde_key].anlagen = list(self.anlagen_daten)
-            self.ausgewaehlte_anlage_id = None
-            self.daten_dirty = True
-            self.speichere_daten()
-            self.refresh_main()
-
-        self.confirm_dialog(
-            "Anlage löschen",
-            f'Wirklich Anlage "{anlage.beschreibung}" löschen?',
-            do_delete,
-        )
+        # Direkt löschen ohne Bestätigung
+        self.anlagen_daten = [
+            a for a in self.anlagen_daten if a.id != self.ausgewaehlte_anlage_id
+        ]
+        self.alle_kunden[self.aktiver_kunde_key].anlagen = list(self.anlagen_daten)
+        self.ausgewaehlte_anlage_id = None
+        self.daten_dirty = True
+        self.speichere_daten()
+        self.refresh_main()
 
     def bearbeite_ausgewaehlte_anlage(self, _e):
         if not self.ausgewaehlte_anlage_id:
@@ -835,9 +838,11 @@ class AnlagenApp:
                 exported.append(dst.name)
 
         if exported:
-            self.dialog("Export erfolgreich", "Exportierte Dateien:\n" + "\n".join(exported))
+            # Snackbar für jeden exportierten File
+            for filename in exported:
+                self.show_file_snackbar("Exportiert", filename)
         else:
-            self.dialog("Fehler", "Keine Daten zum Exportieren vorhanden.")
+            self.show_snackbar("Keine Daten zum Exportieren")
 
     def exportiere_alle_kunden(self, _e):
         """Exportiert alle Kunden als ODT."""
@@ -852,8 +857,7 @@ class AnlagenApp:
                 exportiere_kunde_odt(kunde_to_dict(kunde), name, base)
                 count += 1
 
-            self.show_file_snackbar("Exportiert", f"{count} Kunden")
-            pass  # Snackbar bereits gesetzt
+            self.show_snackbar(f"{count} Kunden exportiert nach {base}")
 
         except Exception as e:
             self.show_snackbar(f"Export-Fehler: {e}")
@@ -1031,11 +1035,12 @@ class AnlagenApp:
     
     def show_snackbar(self, message):
         """Zeigt Snackbar-Nachricht."""
-        self.page.snack_bar = ft.SnackBar(
-            ft.Text(message),
+        snackbar = ft.SnackBar(
+            content=ft.Text(message),
             duration=4000  # 4 Sekunden
         )
-        self.page.snack_bar.open = True
+        self.page.overlay.append(snackbar)
+        snackbar.open = True
         self.page.update()
 
     # ---------------------------------------------------------

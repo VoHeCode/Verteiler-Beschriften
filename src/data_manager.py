@@ -49,7 +49,6 @@ class DataManager:
         settings_pfad = self.get_settings_file_path()
 
         if not settings_pfad.exists():
-            print("Keine Settings-Datei gefunden. Verwende Standard-Einstellungen.")
             return self.settings
 
         try:
@@ -61,11 +60,9 @@ class DataManager:
                 if key in self.settings:
                     self.settings[key] = value
 
-            print(f"Settings erfolgreich geladen: {self.settings}")
             return self.settings
 
         except Exception as e:
-            print(f"Fehler beim Laden der Settings: {e}")
             return self.settings
 
     def speichere_settings(self, settings=None):
@@ -88,11 +85,9 @@ class DataManager:
             with open(settings_pfad, 'w', encoding='utf-8') as f:
                 json.dump(self.settings, f, indent=4)  # type: ignore[arg-type]
 
-            print(f"Settings erfolgreich gespeichert: {self.settings}")
             return True, None
 
         except Exception as e:
-            print(f"Fehler beim Speichern der Settings: {e}")
             return False, str(e)
 
     # ==================== Daten Management ====================
@@ -106,7 +101,6 @@ class DataManager:
         daten_pfad = self.get_data_file_path()
 
         if not daten_pfad.exists():
-            print("Keine Daten gefunden. Starte mit leeren Daten.")
             return {}, 1
 
         try:
@@ -123,11 +117,9 @@ class DataManager:
                     max_id = max((a.get('id', 0) for a in kunde_data.get('anlagen', [])), default=0)
                     kunde_data['next_anlage_id'] = max_id + 1
 
-            print(f"Daten erfolgreich geladen: {len(alle_kunden)} Kunden")
             return alle_kunden, next_kunden_id
 
         except Exception as e:
-            print(f"Fehler beim Laden der Daten: {e}")
             return {}, 1
 
     def speichere_daten(self, alle_kunden, next_kunden_id):
@@ -154,11 +146,9 @@ class DataManager:
             with open(daten_pfad, 'w', encoding='utf-8') as f:
                 json.dump(alle_daten, f, indent=4, ensure_ascii=False)  # type: ignore[arg-type]
 
-            print(f"Daten erfolgreich gespeichert: {len(alle_kunden)} Kunden")
             return True, None
 
         except Exception as e:
-            print(f"Fehler beim Speichern der Daten: {e}")
             return False, str(e)
 
     # ==================== Helper-Funktionen ====================
@@ -229,7 +219,7 @@ class DataManager:
         Returns:
             tuple: (erfolg: bool, exportierte_dateien: list, fehler: str oder None)
         """
-        from constants import EXPORT_DATA_FILE, EXPORT_SETTINGS_FILE
+        from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
         import shutil
 
         ziel_verzeichnis = Path(ziel_verzeichnis)
@@ -239,14 +229,14 @@ class DataManager:
             # Kopiere Daten-Datei
             daten_quelle = self.get_data_file_path()
             if daten_quelle.exists():
-                daten_ziel = ziel_verzeichnis / EXPORT_DATA_FILE
+                daten_ziel = ziel_verzeichnis / EXPORT_DATEN_DATEI
                 shutil.copy2(daten_quelle, daten_ziel)
                 exportierte_dateien.append(f"✓ {daten_ziel}")
 
             # Kopiere Settings-Datei
             settings_quelle = self.get_settings_file_path()
             if settings_quelle.exists():
-                settings_ziel = ziel_verzeichnis / EXPORT_SETTINGS_FILE
+                settings_ziel = ziel_verzeichnis / EXPORT_SETTINGS_DATEI
                 shutil.copy2(settings_quelle, settings_ziel)
                 exportierte_dateien.append(f"✓ {settings_ziel}")
 
@@ -264,7 +254,7 @@ class DataManager:
         Returns:
             tuple: (erfolg: bool, importierte_dateien: list, fehler: str oder None)
         """
-        from constants import EXPORT_DATA_FILE, EXPORT_SETTINGS_FILE
+        from constants import EXPORT_DATEN_DATEI, EXPORT_SETTINGS_DATEI
         import shutil
 
         quell_verzeichnis = Path(quell_verzeichnis)
@@ -272,7 +262,7 @@ class DataManager:
 
         try:
             daten_quelle = quell_verzeichnis / EXPORT_DATEN_DATEI
-            settings_quelle = quell_verzeichnis / EXPORT_SETTINGS_FILE
+            settings_quelle = quell_verzeichnis / EXPORT_SETTINGS_DATEI
 
             # Importiere Daten
             if daten_quelle.exists():
@@ -284,7 +274,7 @@ class DataManager:
             if settings_quelle.exists():
                 settings_ziel = self.get_settings_file_path()
                 shutil.copy2(settings_quelle, settings_ziel)
-                importierte_dateien.append(f"✓ {EXPORT_SETTINGS_FILE}")
+                importierte_dateien.append(f"✓ {EXPORT_SETTINGS_DATEI}")
 
             if not importierte_dateien:
                 return False, [], "Keine Dateien gefunden"
