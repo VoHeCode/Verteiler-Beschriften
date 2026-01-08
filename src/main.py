@@ -139,6 +139,7 @@ class AnlagenApp:
         self.data_path.mkdir(parents=True, exist_ok=True)
         (self.data_path / "Export").mkdir(parents=True, exist_ok=True)
         (self.data_path / "Import").mkdir(parents=True, exist_ok=True)
+        
 
         # Manager
         self.data_manager = DataManager(self.data_path)
@@ -181,7 +182,7 @@ class AnlagenApp:
     def show_file_snackbar(self, action, filename):
         """Zeigt Snackbar für Dateioperationen."""
         # Vollständiger Pfad für Datendateien
-        if filename == "anlagen_daten.json" or filename == "app_settings.json":
+        if filename == "Verteiler_Daten.json" or filename == "Verteiler_Einstellungen.json":
             filepath = str(self.data_path / filename)
         else:
             filepath = filename
@@ -273,12 +274,17 @@ class AnlagenApp:
     def lade_daten(self):
         """Lädt Daten über DataManager und konvertiert zu Dataclasses."""
         alle_kunden_raw, self.next_kunden_id = self.data_manager.lade_daten()
+        
         self.alle_kunden = {
             name: kunde_from_dict(kdict) for name, kdict in alle_kunden_raw.items()
         }
+        
         if self.alle_kunden:
             self.aktiver_kunde_key = next(iter(self.alle_kunden))
-        self.show_file_snackbar("Geladen", "anlagen_daten.json")
+        
+        # Zeige wo Daten geladen wurden
+        daten_pfad = self.data_path / "Verteiler_Daten.json"
+        self.show_file_snackbar("Geladen", str(daten_pfad))
 
     def speichere_daten(self, _e=None):
         """Schreibt Dataclasses zurück in Dict-Struktur und speichert."""
@@ -297,7 +303,7 @@ class AnlagenApp:
             self.show_snackbar(f"Speicher-Fehler: {fehler}")
         else:
             self.daten_dirty = False
-            self.show_file_snackbar("Gespeichert", "anlagen_daten.json")
+            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
 
     def speichere_projekt_daten(self, _e=None):
         if not self.aktiver_kunde_key:
@@ -336,7 +342,7 @@ class AnlagenApp:
             self.original_kunde_values[field_key] = current
             self.daten_dirty = True
             self.speichere_daten()
-            self.show_file_snackbar("Gespeichert", "anlagen_daten.json")
+            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
 
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
@@ -482,7 +488,7 @@ class AnlagenApp:
 
         self.ui["kunde_input"].value = ""
         self.page.update()
-        self.dialog("Erfolg", f'Kunde "{name}" hinzugefügt.')
+        self.show_snackbar(f'Kunde "{name}" hinzugefügt')
 
     def _kunde_umbenennen(self, _e):
         if not self.aktiver_kunde_key:
@@ -506,7 +512,7 @@ class AnlagenApp:
         self.ui["kunde_input"].value = ""
         self.page.update()
 
-        self.dialog("Erfolg", f'Kunde umbenannt: "{alt}" → "{neuer}"')
+        self.show_snackbar(f'Kunde umbenannt: "{alt}" → "{neuer}"')
 
     def kunde_loeschen(self, _e):
         if not self.aktiver_kunde_key:
@@ -552,7 +558,7 @@ class AnlagenApp:
         self.speichere_daten()
 
         self.refresh_main()
-        self.dialog("Erfolg", f'Anlage "{neue.beschreibung}" hinzugefügt.')
+        self.show_snackbar(f'Anlage "{neue.beschreibung}" hinzugefügt')
 
     def anlage_loeschen(self, _e):
         if not self.ausgewaehlte_anlage_id:
@@ -822,8 +828,8 @@ class AnlagenApp:
         export_base = self.get_export_base_path()
         ts = self._timestamp()
 
-        daten = self.data_path / "anlagen_daten.json"
-        settings = self.data_path / "app_settings.json"
+        daten = self.data_path / "Verteiler_Daten.json"
+        settings = self.data_path / "Verteiler_Einstellungen.json"
 
         exported = []
 
@@ -863,8 +869,8 @@ class AnlagenApp:
             self.show_snackbar(f"Export-Fehler: {e}")
 
     def exportiere_alle_daten_json(self, _e):
-        """Exportiert anlagen_daten.json mit Zeitstempel."""
-        src = self.data_path / "anlagen_daten.json"
+        """Exportiert Verteiler_Daten.json mit Zeitstempel."""
+        src = self.data_path / "Verteiler_Daten.json"
         if not src.exists():
             return self.show_snackbar("Keine Daten zum Exportieren")
 
@@ -910,7 +916,7 @@ class AnlagenApp:
         
         # 3. Settings-Import (immer ohne Prüfung)
         if is_settings:
-            target = self.data_path / "app_settings.json"
+            target = self.data_path / "Verteiler_Einstellungen.json"
             if self._copy_file(file_path, target, "Import"):
                 self.settings = self.data_manager.lade_settings()
                 self.show_snackbar("Einstellungen importiert")
@@ -924,16 +930,18 @@ class AnlagenApp:
     
     def _import_daten_mit_vergleich(self, file_path, import_data):
         """Importiert Daten mit Vergleich und Merge-Option."""
-        # Zähle Import-Daten
-        import_kunden = len(import_data.get('alle_kunden', {}))
-        import_anlagen = sum(len(k.get('anlagen', [])) for k in import_data.get('alle_kunden', {}).values())
+        
+        # Zähle Import-Daten (JSON hat 'kunden' nicht 'alle_kunden')
+        import_kunden = len(import_data.get('kunden', {}))
+        import_anlagen = sum(len(k.get('anlagen', [])) for k in import_data.get('kunden', {}).values())
         
         # Zähle aktuelle Daten
         aktuelle_kunden = len(self.alle_kunden)
         aktuelle_anlagen = sum(len(k.anlagen) for k in self.alle_kunden.values())
         
+        
         # Prüfe ob Merge möglich (unterschiedliche Kunden)
-        import_kunde_keys = set(import_data.get('alle_kunden', {}).keys())
+        import_kunde_keys = set(import_data.get('kunden', {}).keys())
         aktuelle_kunde_keys = set(self.alle_kunden.keys())
         neue_kunden = import_kunde_keys - aktuelle_kunde_keys
         
@@ -962,6 +970,9 @@ class AnlagenApp:
     
     def _confirm_import_dialog(self, message, file_path, merge_moeglich, neue_kunden, import_data):
         """Zeigt Bestätigungs-Dialog mit Import/Merge-Optionen."""
+        
+        dlg = None  # Forward declaration
+        
         def on_import(e):
             dlg.open = False
             self.page.update()
@@ -992,27 +1003,25 @@ class AnlagenApp:
             content=ft.Text(message),
             actions=actions,
             actions_alignment=ft.MainAxisAlignment.END,
+            open=True,
         )
-        
-        self.page.dialog = dlg
-        dlg.open = True
+        self.page.overlay.append(dlg)
         self.page.update()
     
     def _do_import(self, file_path):
         """Führt Import durch (überschreibt alles)."""
-        target = self.data_path / "anlagen_daten.json"
+        target = self.data_path / "Verteiler_Daten.json"
         if self._copy_file(file_path, target, "Import"):
             self.lade_daten()
             self.aktualisiere_aktive_daten()
             self.refresh_main()  # UI aktualisieren!
             self.show_snackbar("Daten importiert")
-            pass  # Snackbar bereits gesetzt
         else:
             self.show_snackbar("Daten-Import fehlgeschlagen")
     
     def _do_merge(self, neue_kunde_keys, import_data):
         """Führt Merge durch (nur neue Kunden hinzufügen)."""
-        import_kunden = import_data.get('alle_kunden', {})
+        import_kunden = import_data.get('kunden', {})
         
         merged_count = 0
         for kunde_key in neue_kunde_keys:
@@ -1029,7 +1038,7 @@ class AnlagenApp:
             self.aktualisiere_aktive_daten()
             self.refresh_main()  # UI aktualisieren!
             self.show_snackbar(f"{merged_count} Kunden gemergt")
-            self.dialog("Merge erfolgreich", f"{merged_count} neue Kunden wurden hinzugefügt.")
+            self.show_snackbar(f"{merged_count} neue Kunden hinzugefügt")
         else:
             self.show_snackbar("Keine neuen Kunden gefunden")
     
