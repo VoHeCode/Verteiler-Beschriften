@@ -205,9 +205,7 @@ class DataManager:
             'code': anlage.get('code', ''),
             'bemerkung': anlage.get('bemerkung', ''),
             'felder': anlage.get('felder', 3),
-            'reihen': anlage.get('reihen', 7),
-            'teile_text': anlage.get('teile_text', ''),
-            'teile_parsed': anlage.get('teile_parsed', [])
+            'reihen': anlage.get('reihen', 7)
         }
 
     # ==================== Export/Import ====================

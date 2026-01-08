@@ -41,8 +41,6 @@ class Anlage:
     felder: int = 3
     reihen: int = 7
     text_inhalt: str = ""
-    teile_text: str = ""
-    teile_parsed: list = field(default_factory=list)
     code_auto_last: str = ""
 
 @dataclass
@@ -152,10 +150,7 @@ class AnlagenApp:
         self.anlagen_daten = []
         self.aktuelle_anlage = None
         self.ausgewaehlte_anlage_id = None
-        self.letzte_export_datei = None
-
         self.daten_dirty = False
-        self.settings_dirty = False
         self.original_kunde_values = {}
 
         self.ui_builder = UIBuilder(self, page)
@@ -195,11 +190,6 @@ class AnlagenApp:
         snackbar.open = True
         self.page.update()
 
-    def update_status(self, text=""):
-        if "status_text" in self.ui:
-            self.ui["status_text"].value = text
-            self.page.update()
-
     def _timestamp(self):
         return datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -234,29 +224,6 @@ class AnlagenApp:
         self.page.add(haupt)
         self.page.update()
         self.aktualisiere_aktive_daten()
-        self.update_status(f"Daten: {self.data_path}")
-
-    def confirm_dialog(self, title: str, message: str, on_yes_callback):
-        """Zeigt modalen Bestätigungsdialog mit Ja/Nein Buttons."""
-
-        def handle_yes(_event):
-            self.page.pop_dialog()
-            on_yes_callback()
-
-        def handle_no(_event):
-            self.page.pop_dialog()
-
-        dlg = ft.AlertDialog(
-            modal=True,
-            title=ft.Text(title),
-            content=ft.Text(message),
-            actions=[
-                ft.TextButton("Ja", on_click=handle_yes),
-                ft.TextButton("Nein", on_click=handle_no),
-            ],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        self.page.show_dialog(dlg)
 
     def get_export_base_path(self) -> Path:
         """
@@ -792,17 +759,10 @@ class AnlagenApp:
                 self.aktiver_kunde_key,
                 projekt,
             )
-            self.letzte_export_datei = pfad
             self.show_file_snackbar("Exportiert", pfad.name)
-            pass  # Snackbar bereits gesetzt
 
         except Exception as e:
             self.show_snackbar(f"Export-Fehler: {e}")
-
-    def teile_letzte_ods(self, _e):
-        if not self.letzte_export_datei or not self.letzte_export_datei.exists():
-            return self.show_snackbar("Keine Datei gefunden")
-        self.show_snackbar(f"Datei: {self.letzte_export_datei}")
 
     def exportiere_kunde_odt(self, _e):
         if not self.aktiver_kunde_key:
@@ -1130,20 +1090,6 @@ class AnlagenApp:
     # ---------------------------------------------------------
     # Logs
     # ---------------------------------------------------------
-
-    def zeige_logs(self, _e):
-        log_file = os.getenv("FLET_APP_CONSOLE")
-        if log_file:
-            try:
-                with open(log_file, "r") as f:
-                    logs = f.read()
-                if len(logs) > 5000:
-                    logs = "...\n" + logs[-5000:]
-                self.dialog("Debug Logs", logs)
-            except Exception as e:
-                self.dialog("Log-Fehler", f"Konnte Logs nicht lesen: {e}")
-        else:
-            self.dialog("Keine Logs", "FLET_APP_CONSOLE nicht verfügbar")
 
     # ---------------------------------------------------------
     # main()
