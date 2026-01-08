@@ -4,15 +4,15 @@
 
 # SYNC WITH pyproject.toml [tool.flet]
 TOOL_FLET_NAME = "Verteiler_Beschriften"
-TOOL_FLET_VERSION = "2.9.5"
+TOOL_FLET_VERSION = "2.9.0"
 TOOL_FLET_DESCRIPTION = "Anlagen Eingabe und Verteiler-Beschriftung"
 
 # App-ID für Android Package
 APP_ID = "com.vohegg.verteiler_beschriften"
 
 # Dateinamen
-DATEINAME = 'anlagen_daten.json'
-SETTINGS_DATEINAME = 'app_settings.json'
+DATA_FILENAME = 'Verteiler_Daten.json'
+SETTINGS_FILENAME = 'Verteiler_Einstellungen.json'
 
 # Layout-Konstanten
 COLUMNS_PER_UNIT = 12

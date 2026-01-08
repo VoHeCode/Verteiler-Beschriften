@@ -7,7 +7,7 @@ Funktionen zum Laden, Speichern und Verwalten von Daten und Einstellungen.
 
 import json
 from pathlib import Path
-from constants import DEFAULT_SETTINGS, DATEINAME, SETTINGS_DATEINAME
+from constants import DEFAULT_SETTINGS, DATA_FILENAME, SETTINGS_FILENAME
 
 
 class DataManager:
@@ -28,7 +28,8 @@ class DataManager:
         Returns:
             Path: Pfad zur Datendatei
         """
-        return self.data_path / DATEINAME
+        result = self.data_path / DATA_FILENAME
+        return result
 
     def get_settings_file_path(self):
         """Gibt den vollständigen Pfad zur Settings-Datei zurück.
@@ -36,7 +37,7 @@ class DataManager:
         Returns:
             Path: Pfad zur Settings-Datei
         """
-        return self.data_path / SETTINGS_DATEINAME
+        return self.data_path / SETTINGS_FILENAME
 
     # ==================== Settings Management ====================
 
@@ -106,6 +107,7 @@ class DataManager:
         try:
             with open(daten_pfad, 'r', encoding='utf-8') as f:
                 alle_daten = json.load(f)
+            
 
             alle_kunden = alle_daten.get('kunden', {})
             next_kunden_id = alle_daten.get('next_kunden_id', 1)
