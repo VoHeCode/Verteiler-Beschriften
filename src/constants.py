@@ -40,7 +40,3 @@ DEFAULT_SETTINGS = {
 
 # Android Request Codes
 CREATE_FILE_REQUEST = 1
-
-# Export-Dateinamen
-EXPORT_DATA_FILE = 'Downloads/Verteiler_Daten.json'
-EXPORT_SETTINGS_FILE = 'Verteiler_Einstellungen.json'
