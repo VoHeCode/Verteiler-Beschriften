@@ -4,7 +4,7 @@
 
 # SYNC WITH pyproject.toml [tool.flet]
 TOOL_FLET_NAME = "Verteiler_Beschriften"
-TOOL_FLET_VERSION = "2.9.0"
+TOOL_FLET_VERSION = "2.9.8"
 TOOL_FLET_DESCRIPTION = "Anlagen Eingabe und Verteiler-Beschriftung"
 
 # App-ID für Android Package
