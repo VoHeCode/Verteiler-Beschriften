@@ -167,12 +167,13 @@ def validiere_eintraege(text_inhalt, felder, reihen):
 
     Returns:
         tuple: (is_valid: bool, gueltige_eintraege: list, fehler_anzahl: int,
-                belegte_spalten: set, max_spalten: int)
+                belegte_spalten: set, max_spalten: int, fehler_details: list)
     """
     max_spalten = felder * reihen * COLUMNS_PER_UNIT
     belegte_spalten = set()
     fehler_anzahl = 0
     gueltige_eintraege = []
+    fehler_details = []
 
     for zeilen_nr, zeile in enumerate(text_inhalt.split('\n'), 1):
         if not zeile.strip():
@@ -181,19 +182,27 @@ def validiere_eintraege(text_inhalt, felder, reihen):
         parsed = parse_zeile(zeile)
         if not parsed:
             fehler_anzahl += 1
+            fehler_details.append(f'"{zeile.strip()}" - Ungültiges Format')
             continue
 
         spalten = parse_spalten(parsed['spalten'])
         if not spalten:
             fehler_anzahl += 1
+            fehler_details.append(f'"{zeile.strip()}" - Spalten nicht erkennbar')
             continue
 
-        if any(s < 1 or s > max_spalten for s in spalten):
+        # Prüfe ob Spalten außerhalb des Bereichs
+        ungueltige = [s for s in spalten if s < 1 or s > max_spalten]
+        if ungueltige:
             fehler_anzahl += 1
+            fehler_details.append(f'"{zeile.strip()}" - Spalte(n) {ungueltige} außerhalb Bereich (1-{max_spalten})')
             continue
 
-        if any(s in belegte_spalten for s in spalten):
+        # Prüfe auf Doppelbelegung
+        doppelt = [s for s in spalten if s in belegte_spalten]
+        if doppelt:
             fehler_anzahl += 1
+            fehler_details.append(f'"{zeile.strip()}" - Spalte(n) {doppelt} bereits belegt')
             continue
 
         for s in spalten:
@@ -206,7 +215,7 @@ def validiere_eintraege(text_inhalt, felder, reihen):
         })
 
     is_valid = (fehler_anzahl == 0)
-    return is_valid, gueltige_eintraege, fehler_anzahl, belegte_spalten, max_spalten
+    return is_valid, gueltige_eintraege, fehler_anzahl, belegte_spalten, max_spalten, fehler_details
 
 
 
@@ -234,7 +243,7 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname,
     reihen = anlage.get('reihen', 7)
     text_inhalt = anlage.get('text_inhalt', '')
 
-    is_valid, gueltige_eintraege, fehler_anzahl, _, _ = validiere_eintraege(
+    is_valid, gueltige_eintraege, fehler_anzahl, _, _, _ = validiere_eintraege(
         text_inhalt, felder, reihen
     )
 

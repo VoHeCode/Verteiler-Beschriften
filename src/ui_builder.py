@@ -256,8 +256,9 @@ class UIBuilder:
             multiline=True,
             min_lines=10,
             max_lines=20,
+            expand=True,
         )
-        editor.on_blur = self.app.info_aktualisieren_und_speichern
+        editor.on_change = self.app.info_aktualisieren_und_speichern
         self.app.ui["text_editor"] = editor
 
         return ft.Column(

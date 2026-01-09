@@ -274,7 +274,7 @@ class AnlagenApp:
             self.show_snackbar(f"Speicher-Fehler: {fehler}")
         else:
             self.daten_dirty = False
-            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
+            self.show_file_snackbar("Gespeichert", "../../../../Downloads/Verteiler_Daten.json")
 
     def speichere_projekt_daten(self, _e=None):
         if not self.aktiver_kunde_key:
@@ -313,7 +313,7 @@ class AnlagenApp:
             self.original_kunde_values[field_key] = current
             self.daten_dirty = True
             self.speichere_daten()
-            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
+            self.show_file_snackbar("Gespeichert", "../../../../Downloads/Verteiler_Daten.json")
 
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
@@ -704,7 +704,7 @@ class AnlagenApp:
         reihen = anlage.reihen
         text = anlage.text_inhalt
 
-        is_valid, gueltige, fehler, belegte, max_spalten = validiere_eintraege(
+        is_valid, gueltige, fehler, belegte, max_spalten, fehler_details = validiere_eintraege(
             text, felder, reihen
         )
 
@@ -714,6 +714,7 @@ class AnlagenApp:
             "is_valid": is_valid,
             "gueltige": gueltige,
             "fehler": fehler,
+            "fehler_details": fehler_details,
             "belegte": belegte,
             "max_spalten": max_spalten,
             "verfuegbar": verfuegbar,
@@ -733,7 +734,11 @@ class AnlagenApp:
         )
 
         if info["fehler"] > 0:
-            self.ui["verfuegbar_label"].value = f"❌ {info['fehler']} Fehler!"
+            # Zeige Fehlerdetails
+            fehler_text = f"❌ {info['fehler']} Fehler:\n"
+            for detail in info["fehler_details"]:
+                fehler_text += f"• {detail}\n"
+            self.ui["verfuegbar_label"].value = fehler_text.rstrip()
             self.ui["verfuegbar_label"].color = ft.Colors.RED_700
         else:
             self.ui["verfuegbar_label"].value = (
