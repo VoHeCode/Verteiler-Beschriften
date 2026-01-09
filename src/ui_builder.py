@@ -176,13 +176,13 @@ class UIBuilder:
                                       on_click=self.app.exportiere_alle_kunden,
                                       expand=True),
                 ], spacing=5),
-                # Zeile 4: Einstellungen - JSON Export
+                # Zeile 4: Einstellungen - Kunden Export
                 ft.Row([
                     ft.ElevatedButton("EINSTELLUNGEN",
                                       on_click=self.app.navigiere_zu_settings,
                                       expand=True),
-                    ft.ElevatedButton("ALLE DATEN JSON EXPORT",
-                                      on_click=self.app.exportiere_alle_daten_json,
+                    ft.ElevatedButton("AKTUELLEN KUNDEN EXPORT",
+                                      on_click=self.app.exportiere_aktuellen_kunden,
                                       expand=True),
                 ], spacing=5),
             ],

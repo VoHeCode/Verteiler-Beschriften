@@ -274,7 +274,7 @@ class AnlagenApp:
             self.show_snackbar(f"Speicher-Fehler: {fehler}")
         else:
             self.daten_dirty = False
-            self.show_file_snackbar("Gespeichert", "../../../../Downloads/Verteiler_Daten.json")
+            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
 
     def speichere_projekt_daten(self, _e=None):
         if not self.aktiver_kunde_key:
@@ -313,7 +313,7 @@ class AnlagenApp:
             self.original_kunde_values[field_key] = current
             self.daten_dirty = True
             self.speichere_daten()
-            self.show_file_snackbar("Gespeichert", "../../../../Downloads/Verteiler_Daten.json")
+            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
 
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
@@ -850,15 +850,35 @@ class AnlagenApp:
         except Exception as e:
             self.show_snackbar(f"Export-Fehler: {e}")
 
-    def exportiere_alle_daten_json(self, _e):
-        """Exportiert Verteiler_Daten.json mit Zeitstempel."""
-        src = self.data_path / "Verteiler_Daten.json"
-        if not src.exists():
-            return self.show_snackbar("Keine Daten zum Exportieren")
-
-        dst = self.get_export_base_path() / f"anlagen_daten_{self._timestamp()}.json"
-        if self._copy_file(src, dst, "Export"):
-            pass  # Snackbar bereits gesetzt
+    def exportiere_aktuellen_kunden(self, _e):
+        """Exportiert nur den aktuellen Kunden mit seinen Anlagen."""
+        if not self.aktiver_kunde_key:
+            return self.show_snackbar("Kein Kunde ausgewählt")
+        
+        try:
+            kunde = self.alle_kunden[self.aktiver_kunde_key]
+            
+            # Erstelle Export-Struktur (nur dieser eine Kunde)
+            export_data = {
+                'kunden': {
+                    self.aktiver_kunde_key: kunde_to_dict(kunde)
+                },
+                'next_kunden_id': self.next_kunden_id
+            }
+            
+            # Dateiname mit Kundenname
+            safe_name = self.aktiver_kunde_key.replace(' ', '_').replace('/', '_')
+            filename = f"Kunde_{safe_name}_{self._timestamp()}.json"
+            dst = self.get_export_base_path() / filename
+            
+            # Schreibe JSON
+            with open(dst, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=2)
+            
+            self.show_file_snackbar("Kunde exportiert", filename)
+            
+        except Exception as e:
+            self.show_snackbar(f"Export-Fehler: {e}")
 
     async def importiere_von_downloads(self, _e):
         """Öffnet FilePicker für JSON-Import."""
@@ -882,12 +902,12 @@ class AnlagenApp:
         self.show_snackbar(f"Prüfe Datei: {file_path.name}")
         
         # 1. Validiere Dateinamen
-        is_daten = "daten" in file_name or "anlagen" in file_name
+        is_daten = "daten" in file_name or "anlagen" in file_name or "kunde" in file_name
         is_settings = "setting" in file_name or "einstellung" in file_name
         
         if not (is_daten or is_settings):
             return self.dialog("Ungültige Datei", 
-                             "Die Datei muss 'daten'/'anlagen' oder 'settings'/'einstellung' im Namen enthalten.")
+                             "Die Datei muss 'daten'/'anlagen'/'kunde' oder 'settings'/'einstellung' im Namen enthalten.")
         
         # 2. Lade und validiere JSON
         try:
@@ -908,7 +928,161 @@ class AnlagenApp:
         
         # 4. Daten-Import mit Vergleich
         if is_daten:
-            self._import_daten_mit_vergleich(file_path, import_data)
+            import_kunden = import_data.get('kunden', {})
+            
+            # Prüfe ob es ein einzelner Kunden-Import ist
+            if len(import_kunden) == 1:
+                kunde_name = list(import_kunden.keys())[0]
+                
+                # Prüfe ob Kunde bereits existiert
+                if kunde_name in self.alle_kunden:
+                    # Kunde existiert → Anlagen-Merge-Dialog
+                    self._show_kunden_anlagen_merge_dialog(kunde_name, import_kunden[kunde_name])
+                else:
+                    # Kunde existiert nicht → normaler Import
+                    self._import_daten_mit_vergleich(file_path, import_data)
+            else:
+                # Mehrere Kunden → normaler Import mit Vergleich
+                self._import_daten_mit_vergleich(file_path, import_data)
+    
+    def _show_kunden_anlagen_merge_dialog(self, kunde_name, import_kunde_data):
+        """Zeigt Dialog für Anlagen-Import bei existierendem Kunden."""
+        
+        dlg = None  # Forward declaration
+        
+        def on_nur_neue(e):
+            dlg.open = False
+            self.page.update()
+            self._merge_nur_neue_anlagen(kunde_name, import_kunde_data)
+        
+        def on_ueberschreiben(e):
+            dlg.open = False
+            self.page.update()
+            self._merge_ueberschreibe_anlagen(kunde_name, import_kunde_data)
+        
+        def on_abbrechen(e):
+            dlg.open = False
+            self.page.update()
+            self.show_snackbar("Import abgebrochen")
+        
+        import_anlagen_count = len(import_kunde_data.get('anlagen', []))
+        vorhanden_anlagen_count = len(self.alle_kunden[kunde_name].anlagen)
+        
+        message = (
+            f"Kunde '{kunde_name}' existiert bereits!\n\n"
+            f"Vorhandene Anlagen: {vorhanden_anlagen_count}\n"
+            f"Import-Anlagen: {import_anlagen_count}\n\n"
+            f"Was möchten Sie tun?"
+        )
+        
+        dlg = ft.AlertDialog(
+            modal=True,
+            title=ft.Text(f"Kunde '{kunde_name}' vorhanden"),
+            content=ft.Text(message),
+            actions=[
+                ft.TextButton("Nur neue Anlagen", on_click=on_nur_neue),
+                ft.TextButton("Vorhandene überschreiben", on_click=on_ueberschreiben),
+                ft.TextButton("Abbrechen", on_click=on_abbrechen),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            open=True,
+        )
+        self.page.overlay.append(dlg)
+        self.page.update()
+    
+    def _merge_nur_neue_anlagen(self, kunde_name, import_kunde_data):
+        """Merged nur Anlagen die noch nicht existieren (nach Beschreibung)."""
+        try:
+            kunde = self.alle_kunden[kunde_name]
+            import_anlagen = import_kunde_data.get('anlagen', [])
+            
+            # Sammle vorhandene Beschreibungen
+            vorhandene_beschreibungen = {a.beschreibung for a in kunde.anlagen}
+            
+            # Filtere neue Anlagen
+            neue_anlagen = [
+                a for a in import_anlagen 
+                if a.get('beschreibung', '') not in vorhandene_beschreibungen
+            ]
+            
+            if not neue_anlagen:
+                return self.show_snackbar("Keine neuen Anlagen gefunden")
+            
+            # Vergebe neue IDs und füge hinzu
+            for anlage_dict in neue_anlagen:
+                # Entferne alte ID und teile_* Felder
+                anlage_dict.pop('id', None)
+                anlage_dict.pop('teile_text', None)
+                anlage_dict.pop('teile_parsed', None)
+                
+                # Neue ID vergeben
+                anlage_dict['id'] = kunde.next_anlage_id
+                kunde.next_anlage_id += 1
+                
+                # Anlage hinzufügen
+                neue_anlage = Anlage(**anlage_dict)
+                kunde.anlagen.append(neue_anlage)
+            
+            # Speichern
+            self.speichere_daten()
+            self.aktualisiere_aktive_daten()
+            self.refresh_main()
+            self.show_snackbar(f"{len(neue_anlagen)} neue Anlagen hinzugefügt")
+            
+        except Exception as e:
+            self.show_snackbar(f"Merge-Fehler: {e}")
+    
+    def _merge_ueberschreibe_anlagen(self, kunde_name, import_kunde_data):
+        """Überschreibt vorhandene Anlagen mit gleicher Beschreibung, fügt neue hinzu."""
+        try:
+            kunde = self.alle_kunden[kunde_name]
+            import_anlagen = import_kunde_data.get('anlagen', [])
+            
+            # Erstelle Mapping: Beschreibung → Anlage
+            vorhandene_map = {a.beschreibung: a for a in kunde.anlagen}
+            
+            ueberschrieben = 0
+            hinzugefuegt = 0
+            
+            for anlage_dict in import_anlagen:
+                beschreibung = anlage_dict.get('beschreibung', '')
+                
+                # Entferne alte ID und teile_* Felder
+                anlage_dict.pop('id', None)
+                anlage_dict.pop('teile_text', None)
+                anlage_dict.pop('teile_parsed', None)
+                
+                if beschreibung in vorhandene_map:
+                    # Überschreiben: behalte die ID der vorhandenen Anlage
+                    vorhandene_anlage = vorhandene_map[beschreibung]
+                    anlage_dict['id'] = vorhandene_anlage.id
+                    
+                    # Ersetze in Liste
+                    idx = kunde.anlagen.index(vorhandene_anlage)
+                    kunde.anlagen[idx] = Anlage(**anlage_dict)
+                    ueberschrieben += 1
+                else:
+                    # Neue Anlage: neue ID vergeben
+                    anlage_dict['id'] = kunde.next_anlage_id
+                    kunde.next_anlage_id += 1
+                    kunde.anlagen.append(Anlage(**anlage_dict))
+                    hinzugefuegt += 1
+            
+            # Speichern
+            self.speichere_daten()
+            self.aktualisiere_aktive_daten()
+            self.refresh_main()
+            
+            msg = []
+            if ueberschrieben > 0:
+                msg.append(f"{ueberschrieben} überschrieben")
+            if hinzugefuegt > 0:
+                msg.append(f"{hinzugefuegt} hinzugefügt")
+            
+            self.show_snackbar(f"Anlagen: {', '.join(msg)}")
+            
+        except Exception as e:
+            self.show_snackbar(f"Merge-Fehler: {e}")
     
     def _import_daten_mit_vergleich(self, file_path, import_data):
         """Importiert Daten mit Vergleich und Merge-Option."""
