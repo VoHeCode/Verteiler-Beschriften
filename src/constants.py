@@ -4,14 +4,14 @@
 
 # SYNC WITH pyproject.toml [tool.flet]
 TOOL_FLET_NAME = "Verteiler_Beschriften"
-TOOL_FLET_VERSION = "2.9.8"
+TOOL_FLET_VERSION = "2.9.0"
 TOOL_FLET_DESCRIPTION = "Anlagen Eingabe und Verteiler-Beschriftung"
 
 # App-ID für Android Package
 APP_ID = "com.vohegg.verteiler_beschriften"
 
 # Dateinamen
-DATA_FILENAME = 'Verteiler_Daten.json'
+DATA_FILENAME = '../../../../Downloads/Verteiler_Daten.json'
 SETTINGS_FILENAME = 'Verteiler_Einstellungen.json'
 
 # Layout-Konstanten
@@ -42,5 +42,5 @@ DEFAULT_SETTINGS = {
 CREATE_FILE_REQUEST = 1
 
 # Export-Dateinamen
-EXPORT_DATA_FILE = 'Verteiler_Daten.json'
+EXPORT_DATA_FILE = 'Downloads/Verteiler_Daten.json'
 EXPORT_SETTINGS_FILE = 'Verteiler_Einstellungen.json'
