@@ -11,7 +11,7 @@ TOOL_FLET_DESCRIPTION = "Anlagen Eingabe und Verteiler-Beschriftung"
 APP_ID = "com.vohegg.verteiler_beschriften"
 
 # Dateinamen
-DATA_FILENAME = '../../../../Downloads/Verteiler_Daten.json'
+DATA_FILENAME = 'Verteiler_Daten.json'
 SETTINGS_FILENAME = 'Verteiler_Einstellungen.json'
 
 # Layout-Konstanten
