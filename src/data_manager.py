@@ -41,6 +41,36 @@ class DataManager:
 
     # ==================== Settings Management ====================
 
+    def validate_setting_value(self, key, value, default_value):
+        """Validiert einen einzelnen Settings-Wert gegen seinen Typ.
+        
+        Args:
+            key: Settings-Key
+            value: Zu validierender Wert
+            default_value: Default-Wert (definiert erwarteten Typ)
+            
+        Returns:
+            Validierter Wert oder Default bei Fehler
+        """
+        try:
+            # Type-Check basierend auf Default
+            if isinstance(default_value, bool):
+                # Bool muss explizit geprüft werden (vor int!)
+                if isinstance(value, bool):
+                    return value
+                return bool(value)
+            elif isinstance(default_value, int):
+                return int(value)
+            elif isinstance(default_value, float):
+                return float(value)
+            elif isinstance(default_value, str):
+                return str(value)
+            else:
+                return value
+        except (ValueError, TypeError):
+            # Bei Fehler: Default verwenden
+            return default_value
+
     def lade_settings(self):
         """Lädt die App-Einstellungen aus der JSON-Datei.
 
@@ -56,10 +86,11 @@ class DataManager:
             with open(settings_pfad, 'r', encoding='utf-8') as f:
                 geladene_settings = json.load(f)
 
-            # Aktualisiere nur vorhandene Keys
+            # Aktualisiere nur vorhandene Keys mit Validierung
             for key, value in geladene_settings.items():
                 if key in self.settings:
-                    self.settings[key] = value
+                    default_value = self.settings[key]
+                    self.settings[key] = self.validate_setting_value(key, value, default_value)
 
             return self.settings
 

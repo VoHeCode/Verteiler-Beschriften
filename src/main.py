@@ -65,6 +65,10 @@ def anlage_to_dict(a: Anlage) -> dict:
     return asdict(a)
 
 def anlage_from_dict(d: dict) -> Anlage:
+    # Migration: Entferne veraltete Felder
+    d = d.copy()  # Kopie um Original nicht zu ändern
+    d.pop('teile_text', None)
+    d.pop('teile_parsed', None)
     return Anlage(**d)
 
 def kunde_to_dict(k: Kunde) -> dict:
@@ -345,6 +349,7 @@ class AnlagenApp:
             view = self.ui_builder.erstelle_hauptansicht()
             self.show(view)
             self.aktualisiere_aktive_daten()  # Kundendaten laden!
+            self.update_navigation_buttons()  # Buttons enable/disable
             return
 
         if view_name == "detail":
@@ -421,6 +426,15 @@ class AnlagenApp:
         self.aktiver_kunde_key = keys[(idx + 1) % len(keys)]
         self.ui["kunden_auswahl"].value = self.aktiver_kunde_key
         self.aktualisiere_aktive_daten()
+    
+    def update_navigation_buttons(self):
+        """Aktiviert/deaktiviert Navigations-Buttons basierend auf Kundenliste."""
+        has_customers = len(self.alle_kunden) > 0
+        if "nav_left_btn" in self.ui:
+            self.ui["nav_left_btn"].disabled = not has_customers
+        if "nav_right_btn" in self.ui:
+            self.ui["nav_right_btn"].disabled = not has_customers
+        self.page.update()
 
     def _kunde_neu_hinzufuegen(self, _e):
         name = (self.ui["kunde_input"].value or "").strip()
@@ -785,30 +799,33 @@ class AnlagenApp:
 
     def exportiere_zu_downloads(self, _e):
         """Exportiert Daten + Settings als JSON."""
-        export_base = self.get_export_base_path()
-        ts = self._timestamp()
+        try:
+            export_base = self.get_export_base_path()
+            ts = self._timestamp()
 
-        daten = self.data_path / "Verteiler_Daten.json"
-        settings = self.data_path / "Verteiler_Einstellungen.json"
+            daten = self.data_path / "Verteiler_Daten.json"
+            settings = self.data_path / "Verteiler_Einstellungen.json"
 
-        exported = []
+            exported = []
 
-        if daten.exists():
-            dst = export_base / f"Verteiler_Daten_{ts}.json"
-            if self._copy_file(daten, dst, "Export"):
-                exported.append(dst.name)
+            if daten.exists():
+                dst = export_base / f"Verteiler_Daten_{ts}.json"
+                if self._copy_file(daten, dst, "Export"):
+                    exported.append(dst.name)
 
-        if settings.exists():
-            dst = export_base / f"Verteiler_Einstellungen_{ts}.json"
-            if self._copy_file(settings, dst, "Export"):
-                exported.append(dst.name)
+            if settings.exists():
+                dst = export_base / f"Verteiler_Einstellungen_{ts}.json"
+                if self._copy_file(settings, dst, "Export"):
+                    exported.append(dst.name)
 
-        if exported:
-            # Snackbar für jeden exportierten File
-            for filename in exported:
-                self.show_file_snackbar("Exportiert", filename)
-        else:
-            self.show_snackbar("Keine Daten zum Exportieren")
+            if exported:
+                # Snackbar für jeden exportierten File
+                for filename in exported:
+                    self.show_file_snackbar("Exportiert", filename)
+            else:
+                self.show_snackbar("Keine Daten zum Exportieren")
+        except Exception as e:
+            self.show_snackbar(f"Export-Fehler: {e}")
 
     def exportiere_alle_kunden(self, _e):
         """Exportiert alle Kunden als ODT."""
@@ -890,43 +907,44 @@ class AnlagenApp:
     
     def _import_daten_mit_vergleich(self, file_path, import_data):
         """Importiert Daten mit Vergleich und Merge-Option."""
-        
-        # Zähle Import-Daten (JSON hat 'kunden' nicht 'alle_kunden')
-        import_kunden = len(import_data.get('kunden', {}))
-        import_anlagen = sum(len(k.get('anlagen', [])) for k in import_data.get('kunden', {}).values())
-        
-        # Zähle aktuelle Daten
-        aktuelle_kunden = len(self.alle_kunden)
-        aktuelle_anlagen = sum(len(k.anlagen) for k in self.alle_kunden.values())
-        
-        
-        # Prüfe ob Merge möglich (unterschiedliche Kunden)
-        import_kunde_keys = set(import_data.get('kunden', {}).keys())
-        aktuelle_kunde_keys = set(self.alle_kunden.keys())
-        neue_kunden = import_kunde_keys - aktuelle_kunde_keys
-        
-        merge_moeglich = len(neue_kunden) > 0
-        
-        # Vergleich
-        if import_kunden < aktuelle_kunden or import_anlagen < aktuelle_anlagen:
-            # Weniger Daten
-            msg = f"Wir haben hier schon mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nTrotzdem importieren?"
-            if merge_moeglich:
-                msg += f"\n\nODER: {len(neue_kunden)} neue Kunden mergen?"
+        try:
+            # Zähle Import-Daten (JSON hat 'kunden' nicht 'alle_kunden')
+            import_kunden = len(import_data.get('kunden', {}))
+            import_anlagen = sum(len(k.get('anlagen', [])) for k in import_data.get('kunden', {}).values())
+            
+            # Zähle aktuelle Daten
+            aktuelle_kunden = len(self.alle_kunden)
+            aktuelle_anlagen = sum(len(k.anlagen) for k in self.alle_kunden.values())
+            
+            
+            # Prüfe ob Merge möglich (unterschiedliche Kunden)
+            import_kunde_keys = set(import_data.get('kunden', {}).keys())
+            aktuelle_kunde_keys = set(self.alle_kunden.keys())
+            neue_kunden = import_kunde_keys - aktuelle_kunde_keys
+            merge_moeglich = len(neue_kunden) > 0
+            
+            # Vergleich
+            if import_kunden < aktuelle_kunden or import_anlagen < aktuelle_anlagen:
+                # Weniger Daten
+                msg = f"Wir haben hier schon mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nTrotzdem importieren?"
+                if merge_moeglich:
+                    msg += f"\n\nODER: {len(neue_kunden)} neue Kunden mergen?"
+                    self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
+                else:
+                    self._confirm_import_dialog(msg, file_path, False, None, import_data)
+            elif import_kunden == aktuelle_kunden and import_anlagen == aktuelle_anlagen:
+                # Gleiche Daten
+                msg = f"Die Daten sind gleich:\n\n{aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\n\nTrotzdem importieren?"
                 self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
             else:
-                self._confirm_import_dialog(msg, file_path, False, None, import_data)
-        elif import_kunden == aktuelle_kunden and import_anlagen == aktuelle_anlagen:
-            # Gleiche Daten
-            msg = f"Die Daten sind gleich:\n\n{aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\n\nTrotzdem importieren?"
-            self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
-        else:
-            # Mehr Daten - direkt importieren
-            if merge_moeglich:
-                msg = f"Import enthält mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nImportieren oder {len(neue_kunden)} neue Kunden mergen?"
-                self._confirm_import_dialog(msg, file_path, True, neue_kunden, import_data)
-            else:
-                self._do_import(file_path)
+                # Mehr Daten - direkt importieren
+                if merge_moeglich:
+                    msg = f"Import enthält mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nImportieren oder {len(neue_kunden)} neue Kunden mergen?"
+                    self._confirm_import_dialog(msg, file_path, True, neue_kunden, import_data)
+                else:
+                    self._do_import(file_path)
+        except Exception as e:
+            self.show_snackbar(f"Import-Vergleich-Fehler: {e}")
     
     def _confirm_import_dialog(self, message, file_path, merge_moeglich, neue_kunden, import_data):
         """Zeigt Bestätigungs-Dialog mit Import/Merge-Optionen."""
@@ -970,37 +988,42 @@ class AnlagenApp:
     
     def _do_import(self, file_path):
         """Führt Import durch (überschreibt alles)."""
-        target = self.data_path / "Verteiler_Daten.json"
-        if self._copy_file(file_path, target, "Import"):
-            self.lade_daten()
-            self.aktualisiere_aktive_daten()
-            self.refresh_main()  # UI aktualisieren!
-            self.show_snackbar("Daten importiert")
-        else:
-            self.show_snackbar("Daten-Import fehlgeschlagen")
+        try:
+            target = self.data_path / "Verteiler_Daten.json"
+            if self._copy_file(file_path, target, "Import"):
+                self.lade_daten()
+                self.aktualisiere_aktive_daten()
+                self.refresh_main()  # UI aktualisieren!
+                self.show_snackbar("Daten importiert")
+            else:
+                self.show_snackbar("Daten-Import fehlgeschlagen")
+        except Exception as e:
+            self.show_snackbar(f"Import-Fehler: {e}")
     
     def _do_merge(self, neue_kunde_keys, import_data):
         """Führt Merge durch (nur neue Kunden hinzufügen)."""
-        import_kunden = import_data.get('kunden', {})
-        
-        merged_count = 0
-        for kunde_key in neue_kunde_keys:
-            if kunde_key in import_kunden:
-                # Konvertiere zu Dataclass
-                kunde_raw = import_kunden[kunde_key]
-                kunde = Kunde(**kunde_raw)
-                kunde.anlagen = [Anlage(**a) for a in kunde_raw.get('anlagen', [])]
-                self.alle_kunden[kunde_key] = kunde
-                merged_count += 1
-        
-        if merged_count > 0:
-            self.speichere_daten()
-            self.aktualisiere_aktive_daten()
-            self.refresh_main()  # UI aktualisieren!
-            self.show_snackbar(f"{merged_count} Kunden gemergt")
-            self.show_snackbar(f"{merged_count} neue Kunden hinzugefügt")
-        else:
-            self.show_snackbar("Keine neuen Kunden gefunden")
+        try:
+            import_kunden = import_data.get('kunden', {})
+            
+            merged_count = 0
+            for kunde_key in neue_kunde_keys:
+                if kunde_key in import_kunden:
+                    # Konvertiere zu Dataclass
+                    kunde_raw = import_kunden[kunde_key]
+                    kunde = Kunde(**kunde_raw)
+                    kunde.anlagen = [Anlage(**a) for a in kunde_raw.get('anlagen', [])]
+                    self.alle_kunden[kunde_key] = kunde
+                    merged_count += 1
+            
+            if merged_count > 0:
+                self.speichere_daten()
+                self.aktualisiere_aktive_daten()
+                self.refresh_main()  # UI aktualisieren!
+                self.show_snackbar(f"{merged_count} neue Kunden hinzugefügt")
+            else:
+                self.show_snackbar("Keine neuen Kunden gefunden")
+        except Exception as e:
+            self.show_snackbar(f"Merge-Fehler: {e}")
     
     def show_snackbar(self, message):
         """Zeigt Snackbar-Nachricht."""

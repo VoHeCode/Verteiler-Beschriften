@@ -73,13 +73,13 @@ class UIBuilder:
         )
 
         # Navigation
+        nav_left = ft.ElevatedButton("◀", on_click=self.app._navigiere_kunde_links, expand=True)
+        nav_right = ft.ElevatedButton("▶", on_click=self.app._navigiere_kunde_rechts, expand=True)
+        self.app.ui["nav_left_btn"] = nav_left
+        self.app.ui["nav_right_btn"] = nav_right
+        
         nav = ft.Row(
-            [
-                ft.ElevatedButton("◀", on_click=self.app._navigiere_kunde_links,
-                                  expand=True),
-                ft.ElevatedButton("▶", on_click=self.app._navigiere_kunde_rechts,
-                                  expand=True),
-            ],
+            [nav_left, nav_right],
             spacing=5,
         )
 
@@ -218,18 +218,18 @@ class UIBuilder:
         for key, label in felder.items():
             self.tf(key, label=label)
 
-        # Auto-Speichern
+        # Auto-Speichern bei Feld-Verlassen
         for key in [
             "beschr_input", "name_input", "adresse_input", "plz_ort_input",
             "zaehlernummer_input", "zaehlerstand_input", "code_input",
             "bemerkung_input"
         ]:
-            self.app.ui[key].on_change = self.app.auto_speichere_detail_daten
+            self.app.ui[key].on_blur = self.app.auto_speichere_detail_daten
 
-        # Code-Aktualisierung
+        # Code-Aktualisierung bei Feld-Verlassen
         for key in ["raum_input", "gebaeude_input", "geschoss_input",
                     "funktion_input"]:
-            self.app.ui[key].on_change = (
+            self.app.ui[key].on_blur = (
                 self.app.aktualisiere_anlagen_code_und_speichere
             )
 
@@ -257,7 +257,7 @@ class UIBuilder:
             min_lines=10,
             max_lines=20,
         )
-        editor.on_change = self.app.info_aktualisieren_und_speichern
+        editor.on_blur = self.app.info_aktualisieren_und_speichern
         self.app.ui["text_editor"] = editor
 
         return ft.Column(
