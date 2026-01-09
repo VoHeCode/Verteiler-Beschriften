@@ -17,7 +17,7 @@ def create_ods_manual(data, settings, output_path, footer_data=None):
         settings: Settings Dictionary
         output_path: Ausgabepfad
         footer_data: Optional - Dictionary mit Fußzeilen-Daten
-                    {filepath, kunde, projekt, code, beschreibung}
+                    {filepath, customer, project, code, description}
     """
     # Namespace Definitionen
     NS = {
@@ -187,19 +187,19 @@ def create_styles_xml(settings, NS, footer_data=None):
         # Region Links: Kundenname
         region_left = ET.SubElement(header, f'{{{NS["style"]}}}region-left')
         p_left = ET.SubElement(region_left, f'{{{NS["text"]}}}p')
-        p_left.text = footer_data.get('kunde', '')
+        p_left.text = footer_data.get('customer', '')
         
         # Region Mitte: Projekt
         region_center = ET.SubElement(header, f'{{{NS["style"]}}}region-center')
         p_center = ET.SubElement(region_center, f'{{{NS["text"]}}}p')
-        p_center.text = footer_data.get('projekt', '')
+        p_center.text = footer_data.get('project', '')
         
         # Region Rechts: Anlagenbeschreibung
         region_right = ET.SubElement(header, f'{{{NS["style"]}}}region-right')
         p_right = ET.SubElement(region_right, f'{{{NS["text"]}}}p')
         span_right = ET.SubElement(p_right, f'{{{NS["text"]}}}span',
                                   attrib={f'{{{NS["text"]}}}style-name': 'MT1'})
-        span_right.text = footer_data.get('beschreibung', '')
+        span_right.text = footer_data.get('description', '')
     
     # Leerer Footer (normal)
     ET.SubElement(master_page, f'{{{NS["style"]}}}footer')
@@ -243,44 +243,44 @@ def create_content_xml(data, settings, NS, footer_data=None):
                  attrib={f'{{{NS["style"]}}}column-width': f"{settings.get('spalten_breite', 1.75)}cm"})
     
     # Row Styles
-    beschr_row = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+    label_row = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
                               attrib={
                                   f'{{{NS["style"]}}}name': 'ro1',
                                   f'{{{NS["style"]}}}family': 'table-row'
                               })
-    ET.SubElement(beschr_row, f'{{{NS["style"]}}}table-row-properties',
+    ET.SubElement(label_row, f'{{{NS["style"]}}}table-row-properties',
                  attrib={f'{{{NS["style"]}}}row-height': f"{settings.get('beschriftung_row_hoehe', 0.5)}cm"})
     
-    inhalt_row = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+    content_row = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
                               attrib={
                                   f'{{{NS["style"]}}}name': 'ro2',
                                   f'{{{NS["style"]}}}family': 'table-row'
                               })
-    ET.SubElement(inhalt_row, f'{{{NS["style"]}}}table-row-properties',
+    ET.SubElement(content_row, f'{{{NS["style"]}}}table-row-properties',
                  attrib={f'{{{NS["style"]}}}row-height': f"{settings.get('inhalt_row_hoehe', 0.5)}cm"})
     
     # Cell Styles
     border = '0.5pt solid #000000' if settings.get('zellen_umrandung', True) else 'none'
     
     # Beschriftung Cell
-    beschr_cell = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+    label_cell = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
                                attrib={
                                    f'{{{NS["style"]}}}name': 'ce1',
                                    f'{{{NS["style"]}}}family': 'table-cell'
                                })
-    ET.SubElement(beschr_cell, f'{{{NS["style"]}}}table-cell-properties',
+    ET.SubElement(label_cell, f'{{{NS["style"]}}}table-cell-properties',
                  attrib={
                      f'{{{NS["fo"]}}}border': border,
                      f'{{{NS["fo"]}}}wrap-option': 'wrap',
                      f'{{{NS["style"]}}}vertical-align': 'top',
                  })
-    ET.SubElement(beschr_cell, f'{{{NS["style"]}}}text-properties',
+    ET.SubElement(label_cell, f'{{{NS["style"]}}}text-properties',
                  attrib={
                      f'{{{NS["fo"]}}}font-size': f"{settings.get('fontsize_beschriftung_zelle', 7)}pt",
                      f'{{{NS["fo"]}}}font-weight': 'bold',
                      f'{{{NS["fo"]}}}hyphenate': 'true',
                  })
-    ET.SubElement(beschr_cell, f'{{{NS["style"]}}}paragraph-properties',
+    ET.SubElement(label_cell, f'{{{NS["style"]}}}paragraph-properties',
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
     
     # Gemergte Cell
@@ -305,23 +305,23 @@ def create_content_xml(data, settings, NS, footer_data=None):
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
     
     # Inhalt Cell
-    inhalt_cell = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
+    content_cell = ET.SubElement(auto_styles, f'{{{NS["style"]}}}style',
                                attrib={
                                    f'{{{NS["style"]}}}name': 'ce3',
                                    f'{{{NS["style"]}}}family': 'table-cell'
                                })
-    ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}table-cell-properties',
+    ET.SubElement(content_cell, f'{{{NS["style"]}}}table-cell-properties',
                  attrib={
                      f'{{{NS["fo"]}}}border': border,
                      f'{{{NS["fo"]}}}wrap-option': 'wrap',
                      f'{{{NS["style"]}}}vertical-align': 'top',
                  })
-    ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}text-properties',
+    ET.SubElement(content_cell, f'{{{NS["style"]}}}text-properties',
                  attrib={
                      f'{{{NS["fo"]}}}font-size': f"{settings.get('fontsize_inhalt_zelle', 6)}pt",
                      f'{{{NS["fo"]}}}hyphenate': 'true',
                  })
-    ET.SubElement(inhalt_cell, f'{{{NS["style"]}}}paragraph-properties',
+    ET.SubElement(content_cell, f'{{{NS["style"]}}}paragraph-properties',
                  attrib={f'{{{NS["fo"]}}}text-align': 'center'})
     
     # Watermark Text Style (5pt, grau)
