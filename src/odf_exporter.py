@@ -272,10 +272,10 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname,
     # Fußzeilen-Daten
     footer_data = {
         'filepath': str(export_pfad),
-        'kunde': kundenname,
-        'projekt': projekt,
+        'customer': kundenname,
+        'project': projekt,
         'code': anlage.get('code', ''),
-        'beschreibung': anlage.get('beschreibung', '')
+        'description': anlage.get('beschreibung', '')
     }
 
     # Erstelle ODS manuell

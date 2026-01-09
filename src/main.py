@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """Anlagen Eingabe App – Registry-Version mit Dataclasses & Optimierungen."""
 
-import os
 import json
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -145,7 +144,7 @@ class AnlagenApp:
 
         # Manager
         self.data_manager = DataManager(self.data_path)
-        self.settings = self.data_manager.lade_settings()
+        self.settings = self.data_manager.load_settings()
 
         # Daten
         self.alle_kunden = {}
@@ -244,7 +243,7 @@ class AnlagenApp:
 
     def lade_daten(self):
         """Lädt Daten über DataManager und konvertiert zu Dataclasses."""
-        alle_kunden_raw, self.next_kunden_id = self.data_manager.lade_daten()
+        alle_kunden_raw, self.next_kunden_id = self.data_manager.load_data()
         
         self.alle_kunden = {
             name: kunde_from_dict(kdict) for name, kdict in alle_kunden_raw.items()
@@ -267,7 +266,7 @@ class AnlagenApp:
 
         out = {key: kunde_to_dict(kunde) for key, kunde in self.alle_kunden.items()}
 
-        ok, fehler = self.data_manager.speichere_daten(
+        ok, fehler = self.data_manager.save_data(
             out, self.next_kunden_id
         )
         if not ok:
@@ -920,7 +919,7 @@ class AnlagenApp:
         if is_settings:
             target = self.data_path / "Verteiler_Einstellungen.json"
             if self._copy_file(file_path, target, "Import"):
-                self.settings = self.data_manager.lade_settings()
+                self.settings = self.data_manager.load_settings()
                 self.show_snackbar("Einstellungen importiert")
                 return  # Snackbar bereits gesetzt
             else:
@@ -1271,7 +1270,7 @@ class AnlagenApp:
                     self.settings[setting_key] = self.ui[ui_key].value
 
             try:
-                self.data_manager.speichere_settings(self.settings)
+                self.data_manager.save_settings(self.settings)
             except (OSError, ValueError, TypeError):
                 pass
             
