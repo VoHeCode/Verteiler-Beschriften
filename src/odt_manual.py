@@ -6,6 +6,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+from constants import _, TOOL_FLET_VERSION
+
 
 def create_odt_manual(customer_data, output_path):
     """Erstellt ODT-Datei manuell mit zipfile und ElementTree.
@@ -80,7 +82,7 @@ def create_meta_xml(NS):
     
     # Generator
     gen = ET.SubElement(meta, 'meta:generator')
-    gen.text = 'Verteiler-Beschriften/2.3.4'
+    gen.text = _('Verteiler-Beschriften/{version}').format(version=TOOL_FLET_VERSION)
     
     # Datum
     now = datetime.now().isoformat()
@@ -136,7 +138,7 @@ def create_content_xml(customer_data, NS):
     text_body = ET.SubElement(body, f'{{{NS["office"]}}}text')
     
     # Extrahiere Daten
-    customer_name = customer_data.get('kundenname', 'Unbekannt')
+    customer_name = customer_data.get('kundenname', _('Unbekannt'))
     projekt = customer_data.get('projekt', '')
     datum = customer_data.get('datum', '')
     adresse = customer_data.get('adresse', '')
@@ -153,20 +155,20 @@ def create_content_xml(customer_data, NS):
                           f'{{{NS["text"]}}}style-name': 'H1',
                           f'{{{NS["text"]}}}outline-level': '1'
                       })
-    h1.text = f'Kunde: {customer_name}'
+    h1.text = _('Kunde: {name}').format(name=customer_name)
     
     # Leerzeile
     ET.SubElement(text_body, f'{{{NS["text"]}}}p')
     
     # Kundendaten
-    add_labeled_paragraph(text_body, NS, 'Projekt', projekt)
-    add_labeled_paragraph(text_body, NS, 'Datum', datum)
-    add_labeled_paragraph(text_body, NS, 'Adresse', adresse)
-    add_labeled_paragraph(text_body, NS, 'PLZ', plz)
-    add_labeled_paragraph(text_body, NS, 'Ort', ort)
-    add_labeled_paragraph(text_body, NS, 'Ansprechpartner', contact_person)
-    add_labeled_paragraph(text_body, NS, 'Telefonnummer', phone_number)
-    add_labeled_paragraph(text_body, NS, 'E-Mail', email)
+    add_labeled_paragraph(text_body, NS, _('Projekt'), projekt)
+    add_labeled_paragraph(text_body, NS, _('Datum'), datum)
+    add_labeled_paragraph(text_body, NS, _('Adresse'), adresse)
+    add_labeled_paragraph(text_body, NS, _('PLZ'), plz)
+    add_labeled_paragraph(text_body, NS, _('Ort'), ort)
+    add_labeled_paragraph(text_body, NS, _('Ansprechpartner'), contact_person)
+    add_labeled_paragraph(text_body, NS, _('Telefonnummer'), phone_number)
+    add_labeled_paragraph(text_body, NS, _('E-Mail'), email)
     
     # Leerzeile
     ET.SubElement(text_body, f'{{{NS["text"]}}}p')
@@ -178,7 +180,7 @@ def create_content_xml(customer_data, NS):
                               f'{{{NS["text"]}}}style-name': 'H2',
                               f'{{{NS["text"]}}}outline-level': '2'
                           })
-        h2.text = 'Anlagen:'
+        h2.text = _('Anlagen:')
         
         ET.SubElement(text_body, f'{{{NS["text"]}}}p')
         
@@ -187,12 +189,15 @@ def create_content_xml(customer_data, NS):
             p_anlage = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
             span_bold = ET.SubElement(p_anlage, f'{{{NS["text"]}}}span',
                                      attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
-            span_bold.text = f"Anlage {electric_system.get('id', '?')}: {electric_system.get('beschreibung', '')}"
+            span_bold.text = _("Anlage {id}: {beschreibung}").format(
+                id=electric_system.get('id', '?'),
+                beschreibung=electric_system.get('beschreibung', '')
+            )
             
             # Anlage Details
-            add_labeled_paragraph(text_body, NS, '  Name', electric_system.get('name', ''))
-            add_labeled_paragraph(text_body, NS, '  Adresse', electric_system.get('adresse', ''))
-            add_labeled_paragraph(text_body, NS, '  PLZ/Ort', electric_system.get('plz_ort', ''))
+            add_labeled_paragraph(text_body, NS, _('  Name'), electric_system.get('name', ''))
+            add_labeled_paragraph(text_body, NS, _('  Adresse'), electric_system.get('adresse', ''))
+            add_labeled_paragraph(text_body, NS, _('  PLZ/Ort'), electric_system.get('plz_ort', ''))
             
             # Lokalisierung
             if electric_system.get('gebaeude') or electric_system.get('geschoss') or electric_system.get('raum'):
@@ -200,11 +205,11 @@ def create_content_xml(customer_data, NS):
                 p_lok = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
                 span_lok = ET.SubElement(p_lok, f'{{{NS["text"]}}}span',
                                         attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
-                span_lok.text = '  Lokalisierung:'
-                add_labeled_paragraph(text_body, NS, '    Gebäude', electric_system.get('gebaeude', ''))
-                add_labeled_paragraph(text_body, NS, '    Geschoss', electric_system.get('geschoss', ''))
-                add_labeled_paragraph(text_body, NS, '    Raum', electric_system.get('raum', ''))
-                add_labeled_paragraph(text_body, NS, '    Funktion', electric_system.get('funktion', ''))
+                span_lok.text = _('  Lokalisierung:')
+                add_labeled_paragraph(text_body, NS, _('    Gebäude'), electric_system.get('gebaeude', ''))
+                add_labeled_paragraph(text_body, NS, _('    Geschoss'), electric_system.get('geschoss', ''))
+                add_labeled_paragraph(text_body, NS, _('    Raum'), electric_system.get('raum', ''))
+                add_labeled_paragraph(text_body, NS, _('    Funktion'), electric_system.get('funktion', ''))
             
             # Zähler
             if electric_system.get('zaehlernummer') or electric_system.get('zaehlerstand'):
@@ -212,19 +217,19 @@ def create_content_xml(customer_data, NS):
                 p_zaehler = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
                 span_zaehler = ET.SubElement(p_zaehler, f'{{{NS["text"]}}}span',
                                             attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
-                span_zaehler.text = '  Zähler:'
-                add_labeled_paragraph(text_body, NS, '    Nummer', electric_system.get('zaehlernummer', ''))
-                add_labeled_paragraph(text_body, NS, '    Stand', electric_system.get('zaehlerstand', ''))
+                span_zaehler.text = _('  Zähler:')
+                add_labeled_paragraph(text_body, NS, _('    Nummer'), electric_system.get('zaehlernummer', ''))
+                add_labeled_paragraph(text_body, NS, _('    Stand'), electric_system.get('zaehlerstand', ''))
             
             # Export-Konfiguration
             ET.SubElement(text_body, f'{{{NS["text"]}}}p')
             p_export = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
             span_export = ET.SubElement(p_export, f'{{{NS["text"]}}}span',
                                        attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
-            span_export.text = '  Export-Konfiguration:'
-            add_labeled_paragraph(text_body, NS, '    Code', electric_system.get('code', ''))
-            add_labeled_paragraph(text_body, NS, '    Felder', str(electric_system.get('felder', 3)))
-            add_labeled_paragraph(text_body, NS, '    Reihen', str(electric_system.get('reihen', 7)))
+            span_export.text = _('  Export-Konfiguration:')
+            add_labeled_paragraph(text_body, NS, _('    Code'), electric_system.get('code', ''))
+            add_labeled_paragraph(text_body, NS, _('    Felder'), str(electric_system.get('felder', 3)))
+            add_labeled_paragraph(text_body, NS, _('    Reihen'), str(electric_system.get('reihen', 7)))
             
             # Beschriftungen
             if electric_system.get('text_inhalt'):
@@ -232,7 +237,7 @@ def create_content_xml(customer_data, NS):
                 p_beschr = ET.SubElement(text_body, f'{{{NS["text"]}}}p')
                 span_beschr = ET.SubElement(p_beschr, f'{{{NS["text"]}}}span',
                                            attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
-                span_beschr.text = '  Beschriftungen:'
+                span_beschr.text = _('  Beschriftungen:')
                 
                 # Beschriftungen als vorformattierter Text
                 label_lines = electric_system.get('text_inhalt', '').split('\n')
@@ -243,7 +248,7 @@ def create_content_xml(customer_data, NS):
             # Bemerkung
             if electric_system.get('bemerkung'):
                 ET.SubElement(text_body, f'{{{NS["text"]}}}p')
-                add_labeled_paragraph(text_body, NS, '  Bemerkung', electric_system.get('bemerkung', ''))
+                add_labeled_paragraph(text_body, NS, _('  Bemerkung'), electric_system.get('bemerkung', ''))
             
             # Leerzeile zwischen Anlagen
             ET.SubElement(text_body, f'{{{NS["text"]}}}p')
@@ -264,3 +269,7 @@ def add_labeled_paragraph(parent, NS, label, value):
                              attrib={f'{{{NS["text"]}}}style-name': 'Bold'})
     span_bold.text = f'{label}: '
     span_bold.tail = str(value)
+
+
+if __name__ == "__main__":
+    pass

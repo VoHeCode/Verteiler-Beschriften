@@ -241,3 +241,7 @@ class DataManager:
 
     # ==================== Export/Import ====================
     # Exportfunktionen wurden entfernt - nicht verwendet
+
+
+if __name__ == "__main__":
+    pass

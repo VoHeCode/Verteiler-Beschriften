@@ -4,6 +4,8 @@
 
 import flet as ft
 
+from constants import _, BFSIZE, BFSIZE2, ts
+
 
 class UIBuilder:
     """Erzeugt alle UI-Elemente und speichert sie in app.ui[...]"""
@@ -62,9 +64,10 @@ class UIBuilder:
         self.app.ui["kunden_auswahl"] = dd
         
         about_btn = ft.ElevatedButton(
-            "About",
+            _("About", BFSIZE),
             on_click=self.app.zeige_about_dialog,
             width=about_button_width,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
         )
         
         auswahl_row = ft.Row(
@@ -73,8 +76,18 @@ class UIBuilder:
         )
 
         # Navigation
-        nav_left = ft.ElevatedButton("◀", on_click=self.app._navigiere_kunde_links, expand=True)
-        nav_right = ft.ElevatedButton("▶", on_click=self.app._navigiere_kunde_rechts, expand=True)
+        nav_left = ft.ElevatedButton(
+            _("◀", BFSIZE),
+            on_click=self.app._navigiere_kunde_links,
+            expand=True,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+        )
+        nav_right = ft.ElevatedButton(
+            _("▶", BFSIZE),
+            on_click=self.app._navigiere_kunde_rechts,
+            expand=True,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+        )
         self.app.ui["nav_left_btn"] = nav_left
         self.app.ui["nav_right_btn"] = nav_right
         
@@ -84,21 +97,21 @@ class UIBuilder:
         )
 
         # Kunde Input
-        self.tf("kunde_input", hint="Kundenname")
+        self.tf("kunde_input", hint=_("Kundenname"))
 
         # Projektdaten - Datum-Label abhängig vom Format
         datum_format = self.app.settings.get("datum_format", "DE")
-        datum_label = "Datum (TT.MM.JJJJ)" if datum_format == "DE" else "Datum (JJJJ-MM-TT)"
+        datum_label = _("Datum (TT.MM.JJJJ)") if datum_format == "DE" else _("Datum (JJJJ-MM-TT)")
         
         projektfelder = {
-            "kunde_projekt": "Projektname",
+            "kunde_projekt": _("Projektname"),
             "kunde_datum": datum_label,
-            "kunde_adresse": "Adresse",
-            "kunde_plz": "PLZ",
-            "kunde_ort": "Ort",
-            "kunde_ansprechpartner": "Ansprechpartner",
-            "kunde_telefonnummer": "Telefon",
-            "kunde_email": "E-Mail",
+            "kunde_adresse": _("Adresse"),
+            "kunde_plz": _("PLZ"),
+            "kunde_ort": _("Ort"),
+            "kunde_ansprechpartner": _("Ansprechpartner"),
+            "kunde_telefonnummer": _("Telefon"),
+            "kunde_email": _("E-Mail"),
         }
 
         for key, label in projektfelder.items():
@@ -121,69 +134,102 @@ class UIBuilder:
         # Action Buttons in Row
         aktionen = ft.Row(
             [
-                ft.ElevatedButton("NEU",
-                                  on_click=self.app._kunde_neu_hinzufuegen,
-                                  expand=True),
-                ft.ElevatedButton("UMBENENNEN",
-                                  on_click=self.app._kunde_umbenennen,
-                                  expand=True),
-                ft.ElevatedButton("LÖSCHEN",
-                                  on_click=self.app.kunde_loeschen,
-                                  expand=True),
+                ft.ElevatedButton(
+                    _("NEU", BFSIZE),
+                    on_click=self.app._kunde_neu_hinzufuegen,
+                    expand=True,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
+                ft.ElevatedButton(
+                    _("UMBENENNEN", BFSIZE),
+                    on_click=self.app._kunde_umbenennen,
+                    expand=True,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
+                ft.ElevatedButton(
+                    _("LÖSCHEN", BFSIZE),
+                    on_click=self.app.kunde_loeschen,
+                    expand=True,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
             ],
             spacing=5,
         )
 
         return ft.Column(
             [
-                ft.Text("Aktiver Kunde:", weight=ft.FontWeight.BOLD),
+                ft.Text(_("Aktiver Kunde:"), weight=ft.FontWeight.BOLD),
                 auswahl_row,  # Dropdown + About Button
                 nav,
-                ft.Text("Name (Neu/Umbenennen):",
+                ft.Text(_("Name (Neu/Umbenennen):"),
                         weight=ft.FontWeight.BOLD, size=10),
                 self.app.ui["kunde_input"],
                 aktionen,
                 ft.Divider(height=1),
                 *[self.app.ui[k] for k in projektfelder],
                 ft.Divider(height=1),
-                ft.Text("Verwaltete Anlagen:",
+                ft.Text(_("Verwaltete Anlagen:"),
                         weight=ft.FontWeight.BOLD),
                 self.app.ui["anlagen_radiogroup"],
                 # Zeile 1: Anlage bearbeiten - hinzufügen
                 ft.Row([
-                    ft.ElevatedButton("ANLAGE BEARBEITEN",
-                                      on_click=self.app.bearbeite_ausgewaehlte_anlage,
-                                      expand=True),
-                    ft.ElevatedButton("ANLAGE HINZUFÜGEN",
-                                      on_click=self.app.anlage_hinzufuegen,
-                                      expand=True),
+                    ft.ElevatedButton(
+                        _("ANLAGE BEARBEITEN", BFSIZE),
+                        on_click=self.app.bearbeite_ausgewaehlte_anlage,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
+                    ft.ElevatedButton(
+                        _("ANLAGE HINZUFÜGEN", BFSIZE),
+                        on_click=self.app.anlage_hinzufuegen,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
                 ], spacing=5),
                 # Zeile 2: Anlage Tabellenexport - löschen
                 ft.Row([
-                    ft.ElevatedButton("ANLAGE TABELLENEXPORT",
-                                      on_click=self.app.exportiere_anlage,
-                                      expand=True),
-                    ft.ElevatedButton("ANLAGE LÖSCHEN",
-                                      on_click=self.app.anlage_loeschen,
-                                      expand=True),
+                    ft.ElevatedButton(
+                        _("ANLAGE TABELLENEXPORT", BFSIZE),
+                        on_click=self.app.exportiere_anlage,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
+                    ft.ElevatedButton(
+                        _("ANLAGE LÖSCHEN", BFSIZE),
+                        on_click=self.app.anlage_loeschen,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
                 ], spacing=5),
                 # Zeile 3: Kunde - Alle Kunden Text Export
                 ft.Row([
-                    ft.ElevatedButton("KUNDE TEXT EXPORT",
-                                      on_click=self.app.exportiere_kunde_odt,
-                                      expand=True),
-                    ft.ElevatedButton("ALLE KUNDEN TEXT EXPORT",
-                                      on_click=self.app.exportiere_alle_kunden,
-                                      expand=True),
+                    ft.ElevatedButton(
+                        _("KUNDE TEXT EXPORT", BFSIZE),
+                        on_click=self.app.exportiere_kunde_odt,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
+                    ft.ElevatedButton(
+                        _("ALLE KUNDEN TEXT EXPORT", BFSIZE),
+                        on_click=self.app.exportiere_alle_kunden,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
                 ], spacing=5),
                 # Zeile 4: Einstellungen - Kunden Export
                 ft.Row([
-                    ft.ElevatedButton("EINSTELLUNGEN",
-                                      on_click=self.app.navigiere_zu_settings,
-                                      expand=True),
-                    ft.ElevatedButton("AKTUELLEN KUNDEN EXPORT",
-                                      on_click=self.app.exportiere_aktuellen_kunden,
-                                      expand=True),
+                    ft.ElevatedButton(
+                        _("EINSTELLUNGEN", BFSIZE),
+                        on_click=self.app.navigiere_zu_settings,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
+                    ft.ElevatedButton(
+                        _("AKTUELLEN KUNDEN EXPORT", BFSIZE),
+                        on_click=self.app.exportiere_aktuellen_kunden,
+                        expand=True,
+                        style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                    ),
                 ], spacing=5),
             ],
             spacing=5,
@@ -196,23 +242,26 @@ class UIBuilder:
     # ---------------------------------------------------------
 
     def erstelle_anlage_detail_view(self):
-        back = ft.ElevatedButton("« Zurück",
-                                 on_click=self.app.zurueck_zur_hauptansicht)
+        back = ft.ElevatedButton(
+            _("« Zurück", BFSIZE),
+            on_click=self.app.zurueck_zur_hauptansicht,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+        )
 
         # Felder
         felder = {
-            "beschr_input": "Beschreibung",
-            "name_input": "Name",
-            "adresse_input": "Adresse",
-            "plz_ort_input": "PLZ + Ort",
-            "raum_input": "Raum",
-            "gebaeude_input": "Gebäude",
-            "geschoss_input": "Geschoss",
-            "funktion_input": "Funktion",
-            "zaehlernummer_input": "Zählernummer",
-            "zaehlerstand_input": "Zählerstand",
-            "code_input": "Anlagen-Code (Auto)",
-            "bemerkung_input": "Bemerkung",
+            "beschr_input": _("Beschreibung"),
+            "name_input": _("Name"),
+            "adresse_input": _("Adresse"),
+            "plz_ort_input": _("PLZ + Ort"),
+            "raum_input": _("Raum"),
+            "gebaeude_input": _("Gebäude"),
+            "geschoss_input": _("Geschoss"),
+            "funktion_input": _("Funktion"),
+            "zaehlernummer_input": _("Zählernummer"),
+            "zaehlerstand_input": _("Zählerstand"),
+            "code_input": _("Anlagen-Code (Auto)"),
+            "bemerkung_input": _("Bemerkung"),
         }
 
         for key, label in felder.items():
@@ -236,13 +285,13 @@ class UIBuilder:
         # Export-Konfiguration
         self.tf(
             "felder_input",
-            label="Felder",
+            label=_("Felder"),
             keyboard_type=ft.KeyboardType.NUMBER,
             on_change=self.app.info_aktualisieren_und_speichern,
         )
         self.tf(
             "reihen_input",
-            label="Reihen",
+            label=_("Reihen"),
             keyboard_type=ft.KeyboardType.NUMBER,
             on_change=self.app.info_aktualisieren_und_speichern,
         )
@@ -252,7 +301,7 @@ class UIBuilder:
 
         # Text Editor
         editor = ft.TextField(
-            label="Beschriftungen (1 Heizung | 3-6 Lüftung | 7+5 Elektrik)",
+            label=_("Beschriftungen (1 Heizung | 3-6 Lüftung | 7+5 Elektrik)"),
             multiline=True,
             min_lines=10,
             max_lines=20,
@@ -265,11 +314,11 @@ class UIBuilder:
             [
                 back,
                 ft.Divider(),
-                ft.Text("Anlagen-Details",
+                ft.Text(_("Anlagen-Details"),
                         weight=ft.FontWeight.BOLD, size=14),
                 self.app.ui["beschr_input"],
                 ft.Divider(),
-                ft.Text("Lokalisierung",
+                ft.Text(_("Lokalisierung"),
                         weight=ft.FontWeight.BOLD, size=12),
                 *[self.app.ui[k] for k in [
                     "name_input", "adresse_input", "plz_ort_input",
@@ -279,7 +328,7 @@ class UIBuilder:
                     "bemerkung_input"
                 ]],
                 ft.Divider(),
-                ft.Text("Export-Konfiguration",
+                ft.Text(_("Export-Konfiguration"),
                         weight=ft.FontWeight.BOLD, size=12),
                 self.app.ui["felder_input"],
                 self.app.ui["reihen_input"],
@@ -298,28 +347,31 @@ class UIBuilder:
     # ---------------------------------------------------------
 
     def erstelle_settings_dialog(self):
-        back = ft.ElevatedButton("« Zurück",
-                                 on_click=self.app.zurueck_von_settings)
+        back = ft.ElevatedButton(
+            _("« Zurück", BFSIZE),
+            on_click=self.app.zurueck_von_settings,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+        )
 
         settings_map = {
-            "settings_felder_input": ("Standard Felder", "default_felder"),
-            "settings_reihen_input": ("Standard Reihen", "default_reihen"),
-            "settings_font_gemergt_input": ("Font Gemergte Zelle (pt)",
+            "settings_felder_input": (_("Standard Felder"), "default_felder"),
+            "settings_reihen_input": (_("Standard Reihen"), "default_reihen"),
+            "settings_font_gemergt_input": (_("Font Gemergte Zelle (pt)"),
                                             "fontsize_gemergte_zelle"),
-            "settings_font_beschr_input": ("Font Beschriftung (pt)",
+            "settings_font_beschr_input": (_("Font Beschriftung (pt)"),
                                            "fontsize_beschriftung_zelle"),
-            "settings_font_inhalt_input": ("Font Inhalt (pt)",
+            "settings_font_inhalt_input": (_("Font Inhalt (pt)"),
                                            "fontsize_inhalt_zelle"),
-            "settings_spalten_breite_input": ("Spaltenbreite (cm)",
+            "settings_spalten_breite_input": (_("Spaltenbreite (cm)"),
                                               "spalten_breite"),
-            "settings_beschr_hoehe_input": ("Beschriftungszeile (cm)",
+            "settings_beschr_hoehe_input": (_("Beschriftungszeile (cm)"),
                                             "beschriftung_row_hoehe"),
-            "settings_inhalt_hoehe_input": ("Inhaltszeile (cm)",
+            "settings_inhalt_hoehe_input": (_("Inhaltszeile (cm)"),
                                             "inhalt_row_hoehe"),
-            "settings_rand_oben_input": ("Rand Oben (cm)", "rand_oben"),
-            "settings_rand_unten_input": ("Rand Unten (cm)", "rand_unten"),
-            "settings_rand_links_input": ("Rand Links (cm)", "rand_links"),
-            "settings_rand_rechts_input": ("Rand Rechts (cm)", "rand_rechts"),
+            "settings_rand_oben_input": (_("Rand Oben (cm)"), "rand_oben"),
+            "settings_rand_unten_input": (_("Rand Unten (cm)"), "rand_unten"),
+            "settings_rand_links_input": (_("Rand Links (cm)"), "rand_links"),
+            "settings_rand_rechts_input": (_("Rand Rechts (cm)"), "rand_rechts"),
         }
 
         for key, (label, setting_key) in settings_map.items():
@@ -333,29 +385,48 @@ class UIBuilder:
 
         self.sw(
             "settings_umrandung_switch",
-            "Zellen umranden",
+            _("Zellen umranden"),
             self.app.settings["zellen_umrandung"],
             on_change=self.app.auto_speichere_settings,
         )
 
         # Datumsformat-Dropdown
         datum_dropdown = ft.Dropdown(
-            label="Datumsformat",
+            label=_("Datumsformat"),
             options=[
-                ft.dropdown.Option("ISO", "ISO (JJJJ-MM-TT)"),
-                ft.dropdown.Option("DE", "Deutsch (TT.MM.JJJJ)"),
-                ft.dropdown.Option("EN", "Englisch (MM/TT/JJJJ)"),
-                ft.dropdown.Option("SHORT", "Kurz (TT.MM.JJ)"),
+                ft.dropdown.Option("ISO", _("ISO (JJJJ-MM-TT)")),
+                ft.dropdown.Option("DE", _("Deutsch (TT.MM.JJJJ)")),
+                ft.dropdown.Option("EN", _("Englisch (MM/TT/JJJJ)")),
+                ft.dropdown.Option("SHORT", _("Kurz (TT.MM.JJ)")),
             ],
             value=self.app.settings.get("datum_format", "DE"),
+            expand=True,
         )
-        datum_dropdown.on_change = self.app.auto_speichere_settings
+        datum_dropdown.on_text_change = self.app.auto_speichere_settings
         self.app.ui["settings_datum_format"] = datum_dropdown
+        
+        # Sprache/Locale-Dropdown
+        locale_dropdown = ft.Dropdown(
+            label=_("Sprache"),
+            options=[
+                ft.dropdown.Option(loc, loc) for loc in ts.list_locales()
+            ],
+            value=self.app.settings.get("selected_locale", "de_DE"),
+            expand=True,
+        )
+        locale_dropdown.on_text_change = self.app.on_locale_change
+        self.app.ui["settings_locale"] = locale_dropdown
+        
+        # Beide Dropdowns nebeneinander
+        format_locale_row = ft.Row([
+            datum_dropdown,
+            locale_dropdown,
+        ], spacing=10)
         
         # Linebreak-Zeichen
         self.tf(
             "settings_linebreak_input",
-            label="Zeichen für neue Zeile (max 3)",
+            label=_("Zeichen für neue Zeile (max 3)"),
             on_blur=self.app.auto_speichere_settings
         )
         self.app.ui["settings_linebreak_input"].value = self.app.settings.get("linebreak_char", ";")
@@ -364,46 +435,51 @@ class UIBuilder:
             [
                 back,
                 ft.Divider(),
-                ft.Text("Einstellungen",
+                ft.Text(_("Einstellungen"),
                         weight=ft.FontWeight.BOLD, size=14),
-                ft.Text("Standard-Werte",
+                ft.Text(_("Standard-Werte"),
                         weight=ft.FontWeight.BOLD, size=11),
                 self.app.ui["settings_felder_input"],
                 self.app.ui["settings_reihen_input"],
-                self.app.ui["settings_datum_format"],
+                format_locale_row,
                 self.app.ui["settings_linebreak_input"],
                 ft.Divider(),
-                ft.Text("Schriftgrößen",
+                ft.Text(_("Schriftgrößen"),
                         weight=ft.FontWeight.BOLD, size=11),
                 self.app.ui["settings_font_gemergt_input"],
                 self.app.ui["settings_font_beschr_input"],
                 self.app.ui["settings_font_inhalt_input"],
                 ft.Divider(),
-                ft.Text("Tabellen-Layout",
+                ft.Text(_("Tabellen-Layout"),
                         weight=ft.FontWeight.BOLD, size=11),
                 self.app.ui["settings_spalten_breite_input"],
                 self.app.ui["settings_beschr_hoehe_input"],
                 self.app.ui["settings_inhalt_hoehe_input"],
                 self.app.ui["settings_umrandung_switch"],
                 ft.Divider(),
-                ft.Text("Seiten-Layout",
+                ft.Text(_("Seiten-Layout"),
                         weight=ft.FontWeight.BOLD, size=11),
                 self.app.ui["settings_rand_oben_input"],
                 self.app.ui["settings_rand_unten_input"],
                 self.app.ui["settings_rand_links_input"],
                 self.app.ui["settings_rand_rechts_input"],
                 ft.Divider(),
-                ft.Text("Datensicherung",
+                ft.Text(_("Datensicherung"),
                         weight=ft.FontWeight.BOLD, size=11),
-                ft.ElevatedButton("📤 Export zu Documents",
-                                  on_click=self.app.exportiere_zu_downloads,
-                                  expand=True),
-                ft.ElevatedButton("📥 Import von Documents",
-                                  on_click=self.app.importiere_von_downloads,
-                                  expand=True),
+                ft.ElevatedButton(
+                    _("📤 Export zu Documents", BFSIZE),
+                    on_click=self.app.exportiere_zu_downloads,
+                    expand=True,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
+                ft.ElevatedButton(
+                    _("📥 Import von Documents", BFSIZE),
+                    on_click=self.app.importiere_von_downloads,
+                    expand=True,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
                 ft.Text(
-                    "Erstellt: Verteiler_Daten.json & "
-                    "Verteiler_Einstellungen.json",
+                    _("Erstellt: Verteiler_Daten.json & Verteiler_Einstellungen.json"),
                     size=8,
                 ),
             ],
@@ -411,3 +487,7 @@ class UIBuilder:
             scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
+
+
+if __name__ == "__main__":
+    pass

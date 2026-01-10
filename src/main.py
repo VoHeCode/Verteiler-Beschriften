@@ -9,7 +9,8 @@ from pathlib import Path
 from date_utils import parse_date_input, format_date_display
 import flet as ft
 
-from constants import TOOL_FLET_VERSION, TOOL_FLET_NAME, COLUMNS_PER_UNIT
+from constants import TOOL_FLET_VERSION, TOOL_FLET_NAME, COLUMNS_PER_UNIT, _, BFSIZE, BFSIZE2,ts
+
 from data_manager import DataManager
 from ui_builder import UIBuilder
 from odf_exporter import (
@@ -145,6 +146,10 @@ class AnlagenApp:
         # Manager
         self.data_manager = DataManager(self.data_path)
         self.settings = self.data_manager.load_settings()
+        
+        # Setze Locale aus Settings
+        selected_locale = self.settings.get("selected_locale", "de_DE")
+        ts.set_locale(selected_locale)
 
         # Daten
         self.alle_kunden = {}
@@ -173,7 +178,11 @@ class AnlagenApp:
             modal=True,
             title=ft.Text(title),
             content=ft.Text(msg),
-            actions=[ft.TextButton("OK", on_click=lambda e: self.page.pop_dialog())],
+            actions=[ft.TextButton(
+                _("OK", BFSIZE),
+                on_click=lambda e: self.page.pop_dialog(),
+                style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+            )],
         )
         self.page.show_dialog(dlg)
 
@@ -186,7 +195,7 @@ class AnlagenApp:
             filepath = filename
             
         snackbar = ft.SnackBar(
-            content=ft.Text(f"{action}: {filepath}"),
+            content=ft.Text(_("{action}: {filepath}").format(action=action, filepath=filepath)),
             duration=4000  # 4 Sekunden
         )
         self.page.overlay.append(snackbar)
@@ -200,10 +209,10 @@ class AnlagenApp:
         try:
             import shutil
             shutil.copy(src, dst)
-            self.show_file_snackbar("Exportiert", dst.name)
+            self.show_file_snackbar(_("Exportiert"), dst.name)
             return True
         except Exception as e:
-            self.show_snackbar(f"{label}-Fehler: {e}")
+            self.show_snackbar(_("{label}-Fehler: {e}").format(label=label, e=e))
             return False
 
     def map_set_obj(self, mapping, obj):
@@ -253,8 +262,8 @@ class AnlagenApp:
             self.aktiver_kunde_key = next(iter(self.alle_kunden))
         
         # Zeige wo Daten geladen wurden
-        daten_pfad = self.data_path / "Verteiler_Daten.json"
-        self.show_file_snackbar("Geladen", str(daten_pfad))
+        daten_pfad = self.data_manager.get_data_file_path()
+        self.show_file_snackbar(_("Geladen"), str(daten_pfad))
 
     def speichere_daten(self, _e=None):
         """Schreibt Dataclasses zurück in Dict-Struktur und speichert."""
@@ -270,10 +279,11 @@ class AnlagenApp:
             out, self.next_kunden_id
         )
         if not ok:
-            self.show_snackbar(f"Speicher-Fehler: {fehler}")
+            self.show_snackbar(_("Speicher-Fehler: {fehler}").format(fehler=fehler))
         else:
             self.daten_dirty = False
-            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
+            daten_pfad = self.data_manager.get_data_file_path()
+            self.show_file_snackbar(_("Gespeichert"), str(daten_pfad))
 
     def speichere_projekt_daten(self, _e=None):
         if not self.aktiver_kunde_key:
@@ -312,7 +322,6 @@ class AnlagenApp:
             self.original_kunde_values[field_key] = current
             self.daten_dirty = True
             self.speichere_daten()
-            self.show_file_snackbar("Gespeichert", "Verteiler_Daten.json")
 
     def aktualisiere_aktive_daten(self):
         if not self.aktiver_kunde_key:
@@ -377,15 +386,15 @@ class AnlagenApp:
     def zeige_about_dialog(self, _e):
         """Zeigt About-Dialog mit App-Informationen."""
         about_text = (
-            "Version 2.7.0\n\n"
+            _("Version 2.7.0\n\n"
             "Autor: Volker Heggemann\n"
             "vohegg@gmail.com\n\n"
             "Copyright © 2026 Volker Heggemann\n"
             "Alle Rechte vorbehalten\n\n"
             "Optimiert für Hager UZ005\n"
-            "Beschriftungshalterungen"
+            "Beschriftungshalterungen")
         )
-        self.dialog("Verteiler Beschriften", about_text)
+        self.dialog(_("Verteiler Beschriften"), about_text)
     
     def zurueck_von_settings(self, _e):
         """Zurück von Settings zur Hauptansicht (ohne Detail-Daten zu speichern)."""
@@ -438,9 +447,9 @@ class AnlagenApp:
     def _kunde_neu_hinzufuegen(self, _e):
         name = (self.ui["kunde_input"].value or "").strip()
         if not name:
-            return self.dialog("Fehler", "Bitte Kundennamen eingeben.")
+            return self.dialog(_("Fehler"), _("Bitte Kundennamen eingeben."))
         if name in self.alle_kunden:
-            return self.dialog("Fehler", f'Kunde "{name}" existiert bereits.')
+            return self.dialog(_("Fehler"), _('Kunde "{name}" existiert bereits.').format(name=name))
 
         kunde = Kunde(
             id=self.next_kunden_id,
@@ -468,17 +477,17 @@ class AnlagenApp:
 
         self.ui["kunde_input"].value = ""
         self.page.update()
-        self.show_snackbar(f'Kunde "{name}" hinzugefügt')
+        self.show_snackbar(_('Kunde "{name}" hinzugefügt').format(name=name))
 
     def _kunde_umbenennen(self, _e):
         if not self.aktiver_kunde_key:
-            return self.dialog("Fehler", "Kein Kunde ausgewählt.")
+            return self.dialog(_("Fehler"), _("Kein Kunde ausgewählt."))
 
         neuer = (self.ui["kunde_input"].value or "").strip()
         if not neuer:
-            return self.dialog("Fehler", "Bitte neuen Namen eingeben.")
+            return self.dialog(_("Fehler"), _("Bitte neuen Namen eingeben."))
         if neuer in self.alle_kunden:
-            return self.dialog("Fehler", f'Kunde "{neuer}" existiert bereits.')
+            return self.dialog(_("Fehler"), _('Kunde "{neuer}" existiert bereits.').format(neuer=neuer))
 
         alt = self.aktiver_kunde_key
         self.alle_kunden[neuer] = self.alle_kunden.pop(alt)
@@ -492,7 +501,7 @@ class AnlagenApp:
         self.ui["kunde_input"].value = ""
         self.page.update()
 
-        self.show_snackbar(f'Kunde umbenannt: "{alt}" → "{neuer}"')
+        self.show_snackbar(_('Kunde umbenannt: "{alt}" → "{neuer}"').format(alt=alt, neuer=neuer))
 
     def kunde_loeschen(self, _e):
         if not self.aktiver_kunde_key:
@@ -517,13 +526,13 @@ class AnlagenApp:
 
     def anlage_hinzufuegen(self, _e):
         if not self.aktiver_kunde_key:
-            return self.dialog("Fehler", "Bitte zuerst Kunden auswählen.")
+            return self.dialog(_("Fehler"), _("Bitte zuerst Kunden auswählen."))
 
         kunde = self.alle_kunden[self.aktiver_kunde_key]
         
         neue = Anlage(
             id=kunde.next_anlage_id,
-            beschreibung=f"Anlage {kunde.next_anlage_id}",
+            beschreibung=_("Anlage {id}").format(id=kunde.next_anlage_id),
             felder=self.settings.get("default_felder", 3),
             reihen=self.settings.get("default_reihen", 7),
         )
@@ -538,15 +547,15 @@ class AnlagenApp:
         self.speichere_daten()
 
         self.refresh_main()
-        self.show_snackbar(f'Anlage "{neue.beschreibung}" hinzugefügt')
+        self.show_snackbar(_('Anlage "{beschreibung}" hinzugefügt').format(beschreibung=neue.beschreibung))
 
     def anlage_loeschen(self, _e):
         if not self.ausgewaehlte_anlage_id:
-            return self.dialog("Fehler", "Bitte zuerst Anlage auswählen.")
+            return self.dialog(_("Fehler"), _("Bitte zuerst Anlage auswählen."))
 
         anlage = next((a for a in self.anlagen_daten if a.id == self.ausgewaehlte_anlage_id), None)
         if not anlage:
-            return self.dialog("Fehler", "Anlage nicht gefunden.")
+            return self.dialog(_("Fehler"), _("Anlage nicht gefunden."))
 
         # Direkt löschen ohne Bestätigung
         self.anlagen_daten = [
@@ -560,14 +569,14 @@ class AnlagenApp:
 
     def bearbeite_ausgewaehlte_anlage(self, _e):
         if not self.ausgewaehlte_anlage_id:
-            return self.dialog("Fehler", "Bitte zuerst Anlage auswählen.")
+            return self.dialog(_("Fehler"), _("Bitte zuerst Anlage auswählen."))
 
         self.aktuelle_anlage = next(
             (a for a in self.anlagen_daten if a.id == self.ausgewaehlte_anlage_id), None
         )
 
         if not self.aktuelle_anlage:
-            return self.dialog("Fehler", "Anlage nicht gefunden.")
+            return self.dialog(_("Fehler"), _("Anlage nicht gefunden."))
 
         self.navigiere_zu_detail_view()
     # ---------------------------------------------------------
@@ -586,15 +595,15 @@ class AnlagenApp:
             anlage_id = str(anlage.id)
 
             zeile1 = ft.Row(
-                [ft.Radio(value=anlage_id, label=f"ID {anlage_id}: {anlage.beschreibung}")],
+                [ft.Radio(value=anlage_id, label=_("ID {id}: {beschreibung}").format(id=anlage_id, beschreibung=anlage.beschreibung))],
                 spacing=5,
             )
 
             zeile2 = ft.Row(
                 [
                     ft.Container(width=50),
-                    ft.Text(f"Code: {anlage.code or '-'}", size=12),
-                    ft.Text(f"Ort: {anlage.plz_ort or '-'}", size=12),
+                    ft.Text(_("Code: {code}").format(code=anlage.code or '-'), size=12),
+                    ft.Text(_("Ort: {ort}").format(ort=anlage.plz_ort or '-'), size=12),
                 ],
                 spacing=10,
             )
@@ -726,22 +735,28 @@ class AnlagenApp:
         self.speichere_detail_daten()
         info = self.berechne_info(self.aktuelle_anlage)
 
-        self.ui["info_label"].value = (
-            f"Gesamt-Spalten: {self.aktuelle_anlage.felder} × "
-            f"{self.aktuelle_anlage.reihen} × {COLUMNS_PER_UNIT} = "
-            f"{info['max_spalten']}"
+        self.ui["info_label"].value = _(
+            "Gesamt-Spalten: {felder} × {reihen} × {columns_per_unit} = {max_spalten}"
+        ).format(
+            felder=self.aktuelle_anlage.felder,
+            reihen=self.aktuelle_anlage.reihen,
+            columns_per_unit=COLUMNS_PER_UNIT,
+            max_spalten=info['max_spalten']
         )
 
         if info["fehler"] > 0:
             # Zeige Fehlerdetails
-            fehler_text = f"❌ {info['fehler']} Fehler:\n"
+            fehler_text = _("❌ {fehler} Fehler:\n").format(fehler=info['fehler'])
             for detail in info["fehler_details"]:
-                fehler_text += f"• {detail}\n"
+                fehler_text += _("• {detail}\n").format(detail=detail)
             self.ui["verfuegbar_label"].value = fehler_text.rstrip()
             self.ui["verfuegbar_label"].color = ft.Colors.RED_700
         else:
-            self.ui["verfuegbar_label"].value = (
-                f"✓ Verfügbar: {info['verfuegbar']} von {info['max_spalten']}"
+            self.ui["verfuegbar_label"].value = _(
+                "✓ Verfügbar: {verfuegbar} von {max_spalten}"
+            ).format(
+                verfuegbar=info['verfuegbar'],
+                max_spalten=info['max_spalten']
             )
             self.ui["verfuegbar_label"].color = (
                 ft.Colors.GREEN_700
@@ -763,7 +778,7 @@ class AnlagenApp:
 
     def exportiere_anlage(self, _e):
         if not self.aktuelle_anlage:
-            return self.dialog("Fehler", "Keine Anlage ausgewählt.")
+            return self.dialog(_("Fehler"), _("Keine Anlage ausgewählt."))
 
         try:
             projekt = ""
@@ -777,14 +792,14 @@ class AnlagenApp:
                 self.aktiver_kunde_key,
                 projekt,
             )
-            self.show_file_snackbar("Exportiert", pfad.name)
+            self.show_file_snackbar(_("Exportiert"), pfad.name)
 
         except Exception as e:
-            self.show_snackbar(f"Export-Fehler: {e}")
+            self.show_snackbar(_("Export-Fehler: {e}").format(e=e))
 
     def exportiere_kunde_odt(self, _e):
         if not self.aktiver_kunde_key:
-            return self.dialog("Fehler", "Kein Kunde ausgewählt.")
+            return self.dialog(_("Fehler"), _("Kein Kunde ausgewählt."))
 
         self.speichere_projekt_daten()
         kunde = self.alle_kunden[self.aktiver_kunde_key]
@@ -795,11 +810,11 @@ class AnlagenApp:
                 self.aktiver_kunde_key,
                 self.get_export_base_path(),
             )
-            self.show_file_snackbar("Exportiert", pfad.name)
+            self.show_file_snackbar(_("Exportiert"), pfad.name)
             pass  # Snackbar bereits gesetzt
 
         except Exception as e:
-            self.show_snackbar(f"Export-Fehler: {e}")
+            self.show_snackbar(_("Export-Fehler: {e}").format(e=e))
 
     def exportiere_zu_downloads(self, _e):
         """Exportiert Daten + Settings als JSON."""
@@ -807,8 +822,8 @@ class AnlagenApp:
             export_base = self.get_export_base_path()
             ts = self._timestamp()
 
-            daten = self.data_path / "Verteiler_Daten.json"
-            settings = self.data_path / "Verteiler_Einstellungen.json"
+            daten = self.data_manager.get_data_file_path()
+            settings = self.data_manager.get_settings_file_path()
 
             exported = []
 
@@ -825,16 +840,16 @@ class AnlagenApp:
             if exported:
                 # Snackbar für jeden exportierten File
                 for filename in exported:
-                    self.show_file_snackbar("Exportiert", filename)
+                    self.show_file_snackbar(_("Exportiert"), filename)
             else:
-                self.show_snackbar("Keine Daten zum Exportieren")
+                self.show_snackbar(_("Keine Daten zum Exportieren"))
         except Exception as e:
-            self.show_snackbar(f"Export-Fehler: {e}")
+            self.show_snackbar(_("Export-Fehler: {e}").format(e=e))
 
     def exportiere_alle_kunden(self, _e):
         """Exportiert alle Kunden als ODT."""
         if not self.alle_kunden:
-            return self.dialog("Fehler", "Keine Kunden vorhanden.")
+            return self.dialog(_("Fehler"), _("Keine Kunden vorhanden."))
 
         try:
             count = 0
@@ -844,15 +859,15 @@ class AnlagenApp:
                 exportiere_kunde_odt(kunde_to_dict(kunde), name, base)
                 count += 1
 
-            self.show_snackbar(f"{count} Kunden exportiert nach {base}")
+            self.show_snackbar(_("{count} Kunden exportiert nach {base}").format(count=count, base=base))
 
         except Exception as e:
-            self.show_snackbar(f"Export-Fehler: {e}")
+            self.show_snackbar(_("Export-Fehler: {e}").format(e=e))
 
     def exportiere_aktuellen_kunden(self, _e):
         """Exportiert nur den aktuellen Kunden mit seinen Anlagen."""
         if not self.aktiver_kunde_key:
-            return self.show_snackbar("Kein Kunde ausgewählt")
+            return self.show_snackbar(_("Kein Kunde ausgewählt"))
         
         try:
             kunde = self.alle_kunden[self.aktiver_kunde_key]
@@ -874,17 +889,17 @@ class AnlagenApp:
             with open(dst, 'w', encoding='utf-8') as f:
                 json.dump(export_data, f, ensure_ascii=False, indent=2)
             
-            self.show_file_snackbar("Kunde exportiert", filename)
+            self.show_file_snackbar(_("Kunde exportiert"), filename)
             
         except Exception as e:
-            self.show_snackbar(f"Export-Fehler: {e}")
+            self.show_snackbar(_("Export-Fehler: {e}").format(e=e))
 
     async def importiere_von_downloads(self, _e):
         """Öffnet FilePicker für JSON-Import."""
         files = await ft.FilePicker().pick_files(
             allowed_extensions=["json"],
             allow_multiple=False,
-            dialog_title="JSON-Datei zum Importieren wählen"
+            dialog_title=_("JSON-Datei zum Importieren wählen")
         )
         
         if not files:
@@ -898,32 +913,32 @@ class AnlagenApp:
         file_name = file_path.name.lower()
         
         # Snackbar: Prüfung gestartet
-        self.show_snackbar(f"Prüfe Datei: {file_path.name}")
+        self.show_snackbar(_("Prüfe Datei: {name}").format(name=file_path.name))
         
         # 1. Validiere Dateinamen
         is_daten = "daten" in file_name or "anlagen" in file_name or "kunde" in file_name
         is_settings = "setting" in file_name or "einstellung" in file_name
         
         if not (is_daten or is_settings):
-            return self.dialog("Ungültige Datei", 
-                             "Die Datei muss 'daten'/'anlagen'/'kunde' oder 'settings'/'einstellung' im Namen enthalten.")
+            return self.dialog(_("Ungültige Datei"), 
+                             _("Die Datei muss 'daten'/'anlagen'/'kunde' oder 'settings'/'einstellung' im Namen enthalten."))
         
         # 2. Lade und validiere JSON
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 import_data = json.load(f)
         except Exception as ex:
-            return self.show_snackbar(f"Datei-Fehler: {ex}")
+            return self.show_snackbar(_("Datei-Fehler: {ex}").format(ex=ex))
         
         # 3. Settings-Import (immer ohne Prüfung)
         if is_settings:
-            target = self.data_path / "Verteiler_Einstellungen.json"
+            target = self.data_manager.get_settings_file_path()
             if self._copy_file(file_path, target, "Import"):
                 self.settings = self.data_manager.load_settings()
-                self.show_snackbar("Einstellungen importiert")
+                self.show_snackbar(_("Einstellungen importiert"))
                 return  # Snackbar bereits gesetzt
             else:
-                return self.show_snackbar("Einstellungen-Import fehlgeschlagen")
+                return self.show_snackbar(_("Einstellungen-Import fehlgeschlagen"))
         
         # 4. Daten-Import mit Vergleich
         if is_daten:
@@ -962,26 +977,38 @@ class AnlagenApp:
         def on_abbrechen(e):
             dlg.open = False
             self.page.update()
-            self.show_snackbar("Import abgebrochen")
+            self.show_snackbar(_("Import abgebrochen"))
         
         import_anlagen_count = len(import_kunde_data.get('anlagen', []))
         vorhanden_anlagen_count = len(self.alle_kunden[kunde_name].anlagen)
         
-        message = (
-            f"Kunde '{kunde_name}' existiert bereits!\n\n"
-            f"Vorhandene Anlagen: {vorhanden_anlagen_count}\n"
-            f"Import-Anlagen: {import_anlagen_count}\n\n"
-            f"Was möchten Sie tun?"
-        )
+        message = _(
+            "Kunde '{kunde_name}' existiert bereits!\n\n"
+            "Vorhandene Anlagen: {vorhanden}\n"
+            "Import-Anlagen: {import_count}\n\n"
+            "Was möchten Sie tun?"
+        ).format(kunde_name=kunde_name, vorhanden=vorhanden_anlagen_count, import_count=import_anlagen_count)
         
         dlg = ft.AlertDialog(
             modal=True,
-            title=ft.Text(f"Kunde '{kunde_name}' vorhanden"),
+            title=ft.Text(_("Kunde '{kunde_name}' vorhanden").format(kunde_name=kunde_name)),
             content=ft.Text(message),
             actions=[
-                ft.TextButton("Nur neue Anlagen", on_click=on_nur_neue),
-                ft.TextButton("Vorhandene überschreiben", on_click=on_ueberschreiben),
-                ft.TextButton("Abbrechen", on_click=on_abbrechen),
+                ft.TextButton(
+                    _("Nur neue Anlagen", BFSIZE),
+                    on_click=on_nur_neue,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
+                ft.TextButton(
+                    _("Vorhandene überschreiben", BFSIZE),
+                    on_click=on_ueberschreiben,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
+                ft.TextButton(
+                    _("Abbrechen", BFSIZE),
+                    on_click=on_abbrechen,
+                    style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+                ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
             open=True,
@@ -1005,7 +1032,7 @@ class AnlagenApp:
             ]
             
             if not neue_anlagen:
-                return self.show_snackbar("Keine neuen Anlagen gefunden")
+                return self.show_snackbar(_("Keine neuen Anlagen gefunden"))
             
             # Vergebe neue IDs und füge hinzu
             for anlage_dict in neue_anlagen:
@@ -1026,10 +1053,10 @@ class AnlagenApp:
             self.speichere_daten()
             self.aktualisiere_aktive_daten()
             self.refresh_main()
-            self.show_snackbar(f"{len(neue_anlagen)} neue Anlagen hinzugefügt")
+            self.show_snackbar(_("{count} neue Anlagen hinzugefügt").format(count=len(neue_anlagen)))
             
         except Exception as e:
-            self.show_snackbar(f"Merge-Fehler: {e}")
+            self.show_snackbar(_("Merge-Fehler: {e}").format(e=e))
     
     def _merge_ueberschreibe_anlagen(self, kunde_name, import_kunde_data):
         """Überschreibt vorhandene Anlagen mit gleicher Beschreibung, fügt neue hinzu."""
@@ -1074,14 +1101,14 @@ class AnlagenApp:
             
             msg = []
             if ueberschrieben > 0:
-                msg.append(f"{ueberschrieben} überschrieben")
+                msg.append(_("{count} überschrieben").format(count=ueberschrieben))
             if hinzugefuegt > 0:
-                msg.append(f"{hinzugefuegt} hinzugefügt")
+                msg.append(_("{count} hinzugefügt").format(count=hinzugefuegt))
             
-            self.show_snackbar(f"Anlagen: {', '.join(msg)}")
+            self.show_snackbar(_("Anlagen: {msg}").format(msg=', '.join(msg)))
             
         except Exception as e:
-            self.show_snackbar(f"Merge-Fehler: {e}")
+            self.show_snackbar(_("Merge-Fehler: {e}").format(e=e))
     
     def _import_daten_mit_vergleich(self, file_path, import_data):
         """Importiert Daten mit Vergleich und Merge-Option."""
@@ -1104,25 +1131,39 @@ class AnlagenApp:
             # Vergleich
             if import_kunden < aktuelle_kunden or import_anlagen < aktuelle_anlagen:
                 # Weniger Daten
-                msg = f"Wir haben hier schon mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nTrotzdem importieren?"
+                msg = _("Wir haben hier schon mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nTrotzdem importieren?").format(
+                    aktuelle_kunden=aktuelle_kunden, 
+                    aktuelle_anlagen=aktuelle_anlagen,
+                    import_kunden=import_kunden,
+                    import_anlagen=import_anlagen
+                )
                 if merge_moeglich:
-                    msg += f"\n\nODER: {len(neue_kunden)} neue Kunden mergen?"
+                    msg += _("\n\nODER: {count} neue Kunden mergen?").format(count=len(neue_kunden))
                     self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
                 else:
                     self._confirm_import_dialog(msg, file_path, False, None, import_data)
             elif import_kunden == aktuelle_kunden and import_anlagen == aktuelle_anlagen:
                 # Gleiche Daten
-                msg = f"Die Daten sind gleich:\n\n{aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\n\nTrotzdem importieren?"
+                msg = _("Die Daten sind gleich:\n\n{kunden} Kunden, {anlagen} Anlagen\n\nTrotzdem importieren?").format(
+                    kunden=aktuelle_kunden,
+                    anlagen=aktuelle_anlagen
+                )
                 self._confirm_import_dialog(msg, file_path, merge_moeglich, neue_kunden, import_data)
             else:
                 # Mehr Daten - direkt importieren
                 if merge_moeglich:
-                    msg = f"Import enthält mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nImportieren oder {len(neue_kunden)} neue Kunden mergen?"
+                    msg = _("Import enthält mehr Daten:\n\nAktuell: {aktuelle_kunden} Kunden, {aktuelle_anlagen} Anlagen\nImport: {import_kunden} Kunden, {import_anlagen} Anlagen\n\nImportieren oder {neue_count} neue Kunden mergen?").format(
+                        aktuelle_kunden=aktuelle_kunden,
+                        aktuelle_anlagen=aktuelle_anlagen,
+                        import_kunden=import_kunden,
+                        import_anlagen=import_anlagen,
+                        neue_count=len(neue_kunden)
+                    )
                     self._confirm_import_dialog(msg, file_path, True, neue_kunden, import_data)
                 else:
                     self._do_import(file_path)
         except Exception as e:
-            self.show_snackbar(f"Import-Vergleich-Fehler: {e}")
+            self.show_snackbar(_("Import-Vergleich-Fehler: {e}").format(e=e))
     
     def _confirm_import_dialog(self, message, file_path, merge_moeglich, neue_kunden, import_data):
         """Zeigt Bestätigungs-Dialog mit Import/Merge-Optionen."""
@@ -1142,20 +1183,32 @@ class AnlagenApp:
         def on_cancel(e):
             dlg.open = False
             self.page.update()
-            self.show_snackbar("Import abgebrochen")
+            self.show_snackbar(_("Import abgebrochen"))
         
         actions = [
-            ft.TextButton("Importieren", on_click=on_import),
+            ft.TextButton(
+                _("Importieren", BFSIZE),
+                on_click=on_import,
+                style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+            ),
         ]
         
         if merge_moeglich:
-            actions.insert(0, ft.TextButton("Mergen", on_click=on_merge))
+            actions.insert(0, ft.TextButton(
+                _("Mergen", BFSIZE),
+                on_click=on_merge,
+                style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+            ))
         
-        actions.append(ft.TextButton("Abbrechen", on_click=on_cancel))
+        actions.append(ft.TextButton(
+            _("Abbrechen", BFSIZE),
+            on_click=on_cancel,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=BFSIZE2))
+        ))
         
         dlg = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Import-Optionen"),
+            title=ft.Text(_("Import-Optionen")),
             content=ft.Text(message),
             actions=actions,
             actions_alignment=ft.MainAxisAlignment.END,
@@ -1172,11 +1225,11 @@ class AnlagenApp:
                 self.lade_daten()
                 self.aktualisiere_aktive_daten()
                 self.refresh_main()  # UI aktualisieren!
-                self.show_snackbar("Daten importiert")
+                self.show_snackbar(_("Daten importiert"))
             else:
-                self.show_snackbar("Daten-Import fehlgeschlagen")
+                self.show_snackbar(_("Daten-Import fehlgeschlagen"))
         except Exception as e:
-            self.show_snackbar(f"Import-Fehler: {e}")
+            self.show_snackbar(_("Import-Fehler: {e}").format(e=e))
     
     def _do_merge(self, neue_kunde_keys, import_data):
         """Führt Merge durch (nur neue Kunden hinzufügen)."""
@@ -1197,11 +1250,11 @@ class AnlagenApp:
                 self.speichere_daten()
                 self.aktualisiere_aktive_daten()
                 self.refresh_main()  # UI aktualisieren!
-                self.show_snackbar(f"{merged_count} neue Kunden hinzugefügt")
+                self.show_snackbar(_("{count} neue Kunden hinzugefügt").format(count=merged_count))
             else:
-                self.show_snackbar("Keine neuen Kunden gefunden")
+                self.show_snackbar(_("Keine neuen Kunden gefunden"))
         except Exception as e:
-            self.show_snackbar(f"Merge-Fehler: {e}")
+            self.show_snackbar(_("Merge-Fehler: {e}").format(e=e))
     
     def show_snackbar(self, message):
         """Zeigt Snackbar-Nachricht."""
@@ -1288,9 +1341,18 @@ class AnlagenApp:
         except (OSError, ValueError, TypeError):
             pass
 
-    # ---------------------------------------------------------
-    # Logs
-    # ---------------------------------------------------------
+    def on_locale_change(self, _e):
+        selected_locale = self.ui["settings_locale"].value
+        
+        # Prüfe ob sich der Wert wirklich geändert hat
+        if selected_locale == self.settings.get("selected_locale"):
+            return  # Keine Änderung, abbrechen
+        ts.set_locale(selected_locale)
+
+        self.settings["selected_locale"] = selected_locale
+        self.data_manager.save_settings(self.settings)
+
+        self.navigate("settings")
 
     # ---------------------------------------------------------
     # main()
@@ -1300,4 +1362,5 @@ def main(page: ft.Page):
     AnlagenApp(page)
 
 if __name__ == "__main__":
+
     ft.app(target=main)

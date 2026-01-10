@@ -7,7 +7,9 @@ import zipfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-WATERMARK_TEXT = "Verteiler-Beschriften - (C)2026 vohegg@gmail.com"
+from constants import _, TOOL_FLET_VERSION
+
+WATERMARK_TEXT = _("Verteiler-Beschriften - (C)2026 vohegg@gmail.com")
 WATERMARK_COLOR = "#AAAAAA"  # Hellgrau
 def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
@@ -95,7 +97,7 @@ def create_meta_xml(NS):
     
     # Generator
     gen = ET.SubElement(meta, 'meta:generator')
-    gen.text = 'Verteiler-Beschriften/2.3.4'
+    gen.text = _('Verteiler-Beschriften/{version}').format(version=TOOL_FLET_VERSION)
     
     # Datum
     now = datetime.now().isoformat()
@@ -459,3 +461,7 @@ def create_content_xml(data, settings, NS, footer_data=None):
                 ET.SubElement(row, f'{{{NS["table"]}}}covered-table-cell')
     
     return root
+
+
+if __name__ == "__main__":
+    pass

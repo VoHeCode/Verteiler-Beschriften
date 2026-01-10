@@ -16,7 +16,7 @@ from pathlib import Path
 from ods_manual import create_ods_manual
 from odt_manual import create_odt_manual
 
-from constants import COLUMNS_PER_UNIT
+from constants import COLUMNS_PER_UNIT, _
 
 
 def convert_anlage_to_manual_format(anlage, gueltige_eintraege, felder, reihen):
@@ -182,27 +182,34 @@ def validiere_eintraege(text_inhalt, felder, reihen):
         parsed = parse_zeile(zeile)
         if not parsed:
             fehler_anzahl += 1
-            fehler_details.append(f'"{zeile.strip()}" - Ungültiges Format')
+            fehler_details.append(_('{zeile} - Ungültiges Format').format(zeile=f'"{zeile.strip()}"'))
             continue
 
         spalten = parse_spalten(parsed['spalten'])
         if not spalten:
             fehler_anzahl += 1
-            fehler_details.append(f'"{zeile.strip()}" - Spalten nicht erkennbar')
+            fehler_details.append(_('{zeile} - Spalten nicht erkennbar').format(zeile=f'"{zeile.strip()}"'))
             continue
 
         # Prüfe ob Spalten außerhalb des Bereichs
         ungueltige = [s for s in spalten if s < 1 or s > max_spalten]
         if ungueltige:
             fehler_anzahl += 1
-            fehler_details.append(f'"{zeile.strip()}" - Spalte(n) {ungueltige} außerhalb Bereich (1-{max_spalten})')
+            fehler_details.append(_('{zeile} - Spalte(n) {spalten} außerhalb Bereich (1-{max})').format(
+                zeile=f'"{zeile.strip()}"',
+                spalten=ungueltige,
+                max=max_spalten
+            ))
             continue
 
         # Prüfe auf Doppelbelegung
         doppelt = [s for s in spalten if s in belegte_spalten]
         if doppelt:
             fehler_anzahl += 1
-            fehler_details.append(f'"{zeile.strip()}" - Spalte(n) {doppelt} bereits belegt')
+            fehler_details.append(_('{zeile} - Spalte(n) {spalten} bereits belegt').format(
+                zeile=f'"{zeile.strip()}"',
+                spalten=doppelt
+            ))
             continue
 
         for s in spalten:
@@ -237,7 +244,7 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname,
     """
     # Validierung
     if not anlage:
-        raise ValueError('Keine Anlage zum Exportieren vorhanden.')
+        raise ValueError(_('Keine Anlage zum Exportieren vorhanden.'))
 
     felder = anlage.get('felder', 3)
     reihen = anlage.get('reihen', 7)
@@ -248,13 +255,13 @@ def exportiere_anlage_ods_manual(anlage, settings, export_base_path, kundenname,
     )
 
     if not is_valid:
-        raise ValueError(
+        raise ValueError(_(
             'Die Anlage enthält fehlerhafte Beschriftungen. '
             'Bitte beheben Sie die Fehler vor dem Export.'
-        )
+        ))
 
     if not gueltige_eintraege:
-        raise ValueError('Keine gültigen Beschriftungen zum Exportieren gefunden!')
+        raise ValueError(_('Keine gültigen Beschriftungen zum Exportieren gefunden!'))
 
     # Sortiere nach erster Spalte
     gueltige_eintraege.sort(key=lambda x: x['spalten_liste'][0])
@@ -318,7 +325,7 @@ def exportiere_kunde_odt_manual(kunde, kundenname, export_base_path):
         ValueError: Wenn Kunde ungültig ist
     """
     if not kunde:
-        raise ValueError('Kein Kunde zum Exportieren vorhanden.')
+        raise ValueError(_('Kein Kunde zum Exportieren vorhanden.'))
     
     # Konvertiere Kunde für manuelle ODT-Erstellung
     kunde_data = {
@@ -361,3 +368,7 @@ def exportiere_kunde_odt(kunde, kundenname, export_base_path):
         ValueError: Wenn Kunde ungültig ist
     """
     return exportiere_kunde_odt_manual(kunde, kundenname, export_base_path)
+
+
+if __name__ == "__main__":
+    pass
