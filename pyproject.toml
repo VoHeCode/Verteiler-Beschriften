@@ -9,6 +9,8 @@ license-files = [
 ]
 dependencies = [
     "flet>=0.80.0",
+    "Pillow>=10.0.0",
+
 ]
 
 [project.optional-dependencies]
@@ -27,8 +29,9 @@ icon = "assets/logo.png"
 assets = ["assets"]
 
 [tool.flet.android]
-# Keine zusätzlichen Packages für Android - nutzt manuelle ODS-Erstellung
-
+packages = [
+    "Pillow",
+]
 permissions = [
     "android.permission.READ_EXTERNAL_STORAGE",
     "android.permission.WRITE_EXTERNAL_STORAGE",

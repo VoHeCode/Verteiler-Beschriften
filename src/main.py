@@ -100,6 +100,9 @@ class AnlagenApp:
         # Mobile: Padding für System-Overlays
         if self.is_mobile:
             self.page.padding = ft.padding.only(top=25, bottom=25)
+        else:
+            self.page.padding = ft.padding.only(top=2, bottom=2)
+
 
         self.ui = {}
 
