@@ -5,6 +5,12 @@
 Moderne Cross-Platform-App zur Erstellung von Verteilungsbeschriftungen für **Hager UZ005 Beschriftungshalterungen**.
 
 Erstellt zuschneidbare Tabellen im ODS-Format (OpenDocument Spreadsheet) für professionelle Elektroverteilungen.
+Zusätzlich entsteht eine Anlagendoku, die auch in die Schaltschranktür geheftet werden kann.
+Im Zuge eines Anlagen-Checks, kann ferner eine Kunden/Anlagen Doku entstehen. Das alles zur Datenerfassung mit 
+dem Handy/Tablet (z.Zt. Android) und Datenübergabe an einen Rechner (z.Zt. Linux/Windows). Alle Anlagen werden zentral
+in einer (JSON) Datei gespeichert. Es gibt import/export Möglichkeiten.
+
+Die wichtigsten Beispiele stehen im Unterordner : Ergebnisse der Software
 
 ## 📊 Projekt-Status
 

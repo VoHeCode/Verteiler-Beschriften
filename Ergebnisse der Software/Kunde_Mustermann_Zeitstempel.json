@@ -1,0 +1,38 @@
+{
+  "kunden": {
+    "Mustermann": {
+      "id": 8,
+      "projekt": "Wohungsverwaltung Mustermann",
+      "datum": "11.01.2026",
+      "adresse": "Musterstrasse",
+      "plz": "55555",
+      "ort": "Musterort",
+      "ansprechpartner": "Frau Melanie Mustermann",
+      "telefonnummer": "05555-76543",
+      "email": "m.mustermann@mustermann.de",
+      "anlagen": [
+        {
+          "id": 1,
+          "beschreibung": "Mustermann Whg. #91",
+          "name": "Familie Henkel",
+          "adresse": "Henkelsweg 1",
+          "plz_ort": "55555 Musterort",
+          "raum": "Flur",
+          "gebaeude": "Whg",
+          "geschoss": "OG 1",
+          "funktion": "UVT",
+          "zaehlernummer": "HY009-9988-7162-1361",
+          "zaehlerstand": "91720",
+          "code": "=UVT++WHG-OG 1+FLUR",
+          "bemerkung": "Neubeschriftung nach E-Check",
+          "felder": 1,
+          "reihen": 3,
+          "text_inhalt": "1 Wohnzimmer;;;ABB B16;F1\n2 Esszimmer;;;ABB B16;F2\n3 Küche;;;ABB B16;F3\n4 Schlafen;;;ABB B16;F4\n5 Kind/Gast;;;ABB B16;F5\n6 Bad;;;ABB B16; F6\n7 WC;;;ABB B16;F7\n8 Kellerraum;;;ABB B16;F8\n9 Waschautomat;;ABB B16;F9\n10 Trockner;;;ABB B16;F10\n11-12 Carportlicht;;;ABB FiLS B16;F11\n13-15 Elektroherd L1,L2,L3;ABB C16;;;F13-F15\n16 Geschirrspüler Steckdose;ABB B16;F16\n17 Kühlschrank & Küche Steckdose;ABB B16;F17\n20-24 Überspannungsableiter;;bei Rot tauschen lassen;Dehn;Q20\n25-28 Fehlerstromschutzschalter;;;ABB Typ B 40/0.03A;Q25\n29-30 Anker-Zähler (privat);;;;E29\n31-36 Hauptklemme; ;5pol 10/16qmm;von HVT KG;X0\n\n\n\n\n",
+          "code_auto_last": "=UVT++WHG-OG 1+FLUR"
+        }
+      ],
+      "next_anlage_id": 2
+    }
+  },
+  "next_kunden_id": 9
+}
