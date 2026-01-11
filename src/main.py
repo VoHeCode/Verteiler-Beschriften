@@ -101,7 +101,7 @@ class AnlagenApp:
         if self.is_mobile:
             self.page.padding = ft.padding.only(top=25, bottom=25)
         else:
-            self.page.padding = ft.padding.only(top=2, bottom=2)
+            self.page.padding = ft.padding.only(top=2,left=3, right=3, bottom=30)
 
 
         self.ui = {}
