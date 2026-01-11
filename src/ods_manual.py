@@ -9,7 +9,7 @@ from datetime import datetime
 
 from constants import _, TOOL_FLET_VERSION
 
-WATERMARK_TEXT = _("Verteiler-Beschriften - (C)2026 vohegg@gmail.com")
+WATERMARK_TEXT = "Verteiler-Beschriften - (C)2026 vohegg@gmail.com"
 WATERMARK_COLOR = "#AAAAAA"  # Hellgrau
 def create_ods_manual(data, settings, output_path, footer_data=None):
     """Erstellt ODS-Datei manuell mit zipfile und XML.
@@ -97,7 +97,7 @@ def create_meta_xml(NS):
     
     # Generator
     gen = ET.SubElement(meta, 'meta:generator')
-    gen.text = _('Verteiler-Beschriften/{version}').format(version=TOOL_FLET_VERSION)
+    gen.text = 'Verteiler-Beschriften/{version}'.format(version=TOOL_FLET_VERSION)
     
     # Datum
     now = datetime.now().isoformat()

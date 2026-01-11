@@ -87,37 +87,63 @@ class TranslationSystem:
     #   TEXT MEASUREMENT
     # =========================================================
 
-    def _load_font(self, size: int) -> 'ImageFont':
+    def _load_font(self, size: int) -> Optional['ImageFont']:
         """Load or retrieve cached font at specified size."""
         if size in self._font_cache:
             return self._font_cache[size]
 
         if not PIL_AVAILABLE:
-            raise RuntimeError(
-                "PIL/Pillow is required for text measurement. "
-                "Install with: pip install Pillow"
-            )
+            # Statt Exception: Gebe None zurück
+            # _measure() hat bereits einen Fallback
+            return None
 
-        base = os.path.dirname(__file__)
-        font_path = os.path.join(base, "assets", "fonts", "Roboto-Regular.ttf")
+        try:
+            base = os.path.dirname(__file__)
+            font_path = os.path.join(base, "assets", "fonts", "Roboto-Regular.ttf")
 
-        if os.path.exists(font_path):
-            font = ImageFont.truetype(font_path, size)
-        else:
-            font = ImageFont.load_default()
+            if os.path.exists(font_path):
+                font = ImageFont.truetype(font_path, size)
+            else:
+                font = ImageFont.load_default()
 
-        self._font_cache[size] = font
-        return font
+            self._font_cache[size] = font
+            return font
+        except Exception:
+            # Bei jedem Fehler: None zurückgeben
+            return None
 
     def _measure(self, text: str, size: int) -> Tuple[int, int]:
         """Measure text dimensions at given font size."""
-        font = self._load_font(size)
+        # Fallback für Android oder wenn PIL nicht verfügbar
+        if not PIL_AVAILABLE:
+            # Schätze Breite basierend auf Zeichenlänge
+            # Durchschnittliche Zeichenbreite ≈ 0.6 * fontsize
+            width = int(len(text) * size * 0.6)
+            height = int(size * 1.2)
+            return width, height
+        
         try:
-            left, top, right, bottom = font.getbbox(text)
-            return right - left, bottom - top
-        except AttributeError:
-            # Fallback for older Pillow versions
-            return font.getsize(text)
+            font = self._load_font(size)
+            
+            # Wenn _load_font None zurückgibt (z.B. Font-Fehler)
+            if font is None:
+                width = int(len(text) * size * 0.6)
+                height = int(size * 1.2)
+                return width, height
+            
+            try:
+                left, top, right, bottom = font.getbbox(text)
+                return right - left, bottom - top
+            except AttributeError:
+                # Fallback for older Pillow versions
+                return font.getsize(text)
+        except Exception:
+            # Fallback bei jedem Fehler
+            width = int(len(text) * size * 0.6)
+            height = int(size * 1.2)
+            return width, height
+            height = int(size * 1.2)
+            return width, height
 
     def store_text_metrics(self, text: str, size: Optional[int] = None) -> str:
         """

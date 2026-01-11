@@ -1,0 +1,28 @@
+# Anlagen Eingabe App - Requirements (Flet Version)
+
+# UI Framework
+flet>=0.80.0
+
+# Image Processing (für Text-Messung)
+Pillow>=10.4.0
+
+# ODS Export
+
+# Android Support (optional, nur auf Android benötigt)
+# jnius wird automatisch von Flet auf Android installiert
+
+h11~=0.16.0
+httpx~=0.28.1
+oauthlib~=3.3.1
+repath~=0.9.0
+msgpack~=1.1.2
+typing_extensions~=4.15.0
+click~=8.3.1
+Pygments~=2.19.2
+rich~=14.2.0
+httpcore~=1.0.9
+idna~=3.11
+certifi~=2025.11.12
+anyio~=4.12.0
+six~=1.17.0
+pip~=23.2.1

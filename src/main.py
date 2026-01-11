@@ -99,7 +99,7 @@ class AnlagenApp:
         
         # Mobile: Padding für System-Overlays
         if self.is_mobile:
-            self.page.padding = ft.padding.only(top=25, bottom=25)
+            self.page.padding = ft.padding.only(top=25,left=2,right=2, bottom=25)
         else:
             self.page.padding = ft.padding.only(top=2,left=3, right=3, bottom=30)
 
@@ -418,7 +418,6 @@ class AnlagenApp:
         if key in self.alle_kunden:
             self.aktiver_kunde_key = key
             self.aktualisiere_aktive_daten()
-            self.page.update()
 
     def _navigiere_kunde_links(self, _e):
         if not self.alle_kunden or not self.aktiver_kunde_key:

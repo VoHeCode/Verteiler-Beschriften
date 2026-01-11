@@ -82,7 +82,7 @@ def create_meta_xml(NS):
     
     # Generator
     gen = ET.SubElement(meta, 'meta:generator')
-    gen.text = _('Verteiler-Beschriften/{version}').format(version=TOOL_FLET_VERSION)
+    gen.text = 'Verteiler-Beschriften/{version}'.format(version=TOOL_FLET_VERSION)
     
     # Datum
     now = datetime.now().isoformat()

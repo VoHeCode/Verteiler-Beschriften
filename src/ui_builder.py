@@ -60,7 +60,8 @@ class UIBuilder:
             value=self.app.aktiver_kunde_key,
             width=dropdown_width,
         )
-        dd.on_change = self.app.wechsel_kunden_auswahl
+        # dd.on_change = self.app.wechsel_kunden_auswahl
+        dd.on_text_change = self.app.wechsel_kunden_auswahl
         self.app.ui["kunden_auswahl"] = dd
         
         about_btn = ft.ElevatedButton(
