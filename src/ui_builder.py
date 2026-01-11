@@ -60,7 +60,9 @@ class UIBuilder:
             value=self.app.aktiver_kunde_key,
             width=dropdown_width,
         )
-        # dd.on_change = self.app.wechsel_kunden_auswahl
+        # have to do this for android
+        dd.on_change = self.app.wechsel_kunden_auswahl
+        # only this works on linux
         dd.on_text_change = self.app.wechsel_kunden_auswahl
         self.app.ui["kunden_auswahl"] = dd
         
