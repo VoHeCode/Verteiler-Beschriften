@@ -96,7 +96,7 @@ class AnlagenApp:
         
         # Ermittle is_mobile direkt aus page.platform
         self.is_mobile = self.page.platform in [ft.PagePlatform.ANDROID, ft.PagePlatform.IOS]
-        
+
         # Mobile: Padding für System-Overlays
         if self.is_mobile:
             self.page.padding = ft.padding.only(top=25,left=2,right=2, bottom=25)
@@ -389,7 +389,7 @@ class AnlagenApp:
     def zeige_about_dialog(self, _e):
         """Zeigt About-Dialog mit App-Informationen."""
         about_text = (
-            _("Version 2.7.0\n\n"
+            _(f"Version {TOOL_FLET_VERSION}\n\n"
             "Autor: Volker Heggemann\n"
             "vohegg@gmail.com\n\n"
             "Copyright © 2026 Volker Heggemann\n"
