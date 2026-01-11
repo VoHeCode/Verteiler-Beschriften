@@ -14,6 +14,8 @@ class UIBuilder:
         self.app = app
         self.page = page
 
+        self.is_mobile = self.page.platform in [ft.PagePlatform.ANDROID, ft.PagePlatform.IOS]
+
     # ---------------------------------------------------------
     # Hilfsfunktionen
     # ---------------------------------------------------------
@@ -61,9 +63,11 @@ class UIBuilder:
             width=dropdown_width,
         )
         # have to do this for android
-        dd.on_change = self.app.wechsel_kunden_auswahl
-        # only this works on linux
-        dd.on_text_change = self.app.wechsel_kunden_auswahl
+        if self.is_mobile:
+            dd.on_change = self.app.wechsel_kunden_auswahl
+        else:
+            # only this works on linux
+            dd.on_text_change = self.app.wechsel_kunden_auswahl
         self.app.ui["kunden_auswahl"] = dd
         
         about_btn = ft.ElevatedButton(
