@@ -6,7 +6,7 @@ from translator import TranslationSystem
 
 # SYNC WITH pyproject.toml [tool.flet]
 TOOL_FLET_NAME = "Verteiler_Beschriften"
-TOOL_FLET_VERSION = "3.0.0"
+TOOL_FLET_VERSION = "3.1.0"
 TOOL_FLET_DESCRIPTION = "Anlagen Eingabe und Verteiler-Beschriftung"
 
 # App-ID für Android Package
