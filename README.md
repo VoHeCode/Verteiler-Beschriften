@@ -1,6 +1,6 @@
 # Verteiler Beschriften - Flet App
 
-**Version 3.0.0**
+**Version 3.1.0**
 
 Moderne Cross-Platform-App zur Erstellung von Verteilungsbeschriftungen für **Hager UZ005 Beschriftungshalterungen**.
 
